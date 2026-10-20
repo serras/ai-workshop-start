@@ -35,6 +35,12 @@ export function parseSkill(text: string): ParsedSkill {
   return { name: asText(name) || undefined, description: asText(description), properties, body: trim(body) };
 }
 
+/** The first sentence of a description; a `.` in a code span does not end one. */
+export function firstSentence(text: string): string {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return /^(?:`[^`]*`|[^`]|`(?![^`]*`))*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line;
+}
+
 function fallback(reason: string, body: string): ParsedSkill {
   return { description: '', properties: {}, body: trim(body), warning: `${reason}; using the directory name` };
 }

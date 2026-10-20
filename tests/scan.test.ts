@@ -206,3 +206,34 @@ test('skills used as resources, shipped with the product or by tests, are not pr
     ].join('\n'),
   );
 });
+
+test('the first sentence: a `.` in a code span does not end it', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.claude/skills/tests'), { recursive: true });
+  writeFileSync(join(root, '.claude/skills/tests/SKILL.md'), '---\nname: tests\ndescription: Run `npm. test` first. Then push.\n---\n');
+  const { code, stdout } = await atlas(['scan', root]);
+  assert.equal(code, 0);
+  assert.equal(stdout.split('\n')[1], 'tests — Run `npm. test` first.');
+});
+
+test('the first sentence: a lone backtick does not hide the `.` after it', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.claude/skills/tests'), { recursive: true });
+  writeFileSync(join(root, '.claude/skills/tests/SKILL.md'), '---\nname: tests\ndescription: Type ` to quote. Then push.\n---\n');
+  const { code, stdout } = await atlas(['scan', root]);
+  assert.equal(code, 0);
+  assert.equal(stdout.split('\n')[1], 'tests — Type ` to quote.');
+});
+
+test('the first sentence: many code spans and no `.` → the whole description, quickly', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.claude/skills/tests'), { recursive: true });
+  const description = 'Run `a` '.repeat(40).trim();
+  writeFileSync(join(root, '.claude/skills/tests/SKILL.md'), `---\nname: tests\ndescription: ${description}\n---\n`);
+  const { code, stdout } = await atlas(['scan', root]);
+  assert.equal(code, 0);
+  assert.equal(stdout.split('\n')[1], `tests — ${description}`);
+});

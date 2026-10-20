@@ -2,7 +2,7 @@
   "name": "skill-atlas",
   "version": "0.1.0",
   "private": true,
-  "description": "Skill Atlas: every SKILL.md in a repository, in the terminal.",
+  "description": "Skill Atlas: every SKILL.md in a repository, in the terminal or a local web view.",
   "type": "module",
   "bin": {
     "skill-atlas": "src/cli.ts"
@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "marked": "^18.1.1",
     "yaml": "^2.9.1"
   },
   "devDependencies": {

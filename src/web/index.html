@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skill Atlas</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Skill Atlas</h1>
+    <form id="scan" role="search">
+      <input id="repo" name="repo" type="text" required autofocus spellcheck="false" autocomplete="off"
+        placeholder="https://github.com/owner/repo, or a directory" aria-label="Repository to search">
+      <button type="submit">Scan</button>
+    </form>
+  </header>
+  <p id="status" role="status" hidden></p>
+  <main id="results" hidden>
+    <nav id="skills" aria-label="Skills">
+      <h2 id="summary"></h2>
+      <ul id="list"></ul>
+      <details id="warnings" hidden>
+        <summary></summary>
+        <ul></ul>
+      </details>
+    </nav>
+    <article id="skill" aria-live="polite">
+      <p class="placeholder">Select a skill to read its SKILL.md.</p>
+    </article>
+  </main>
+</body>
+</html>
