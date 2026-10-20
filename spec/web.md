@@ -1,15 +1,20 @@
 # Web view
 `./skill-atlas serve [--port <port>]`: the scan as a page, at `http://localhost:3000` by default
-- At the top, a **text field**: a GitHub URL or a directory, as for `scan`
-- On the left, the **skills**: `<owner>/<repo> · N skills`, each skill's name and first sentence, sorted by **name**; the warnings below them
-- Above the skills, a **filter** field: as the user types, only the skills whose *name* contains the text, ignoring case, are listed; *no button*
-  - Empty or only spaces → every skill; no match → `No skill matches "<text>".`; the count stays the scan's
+- At the top, a **text field**: a GitHub URL, a GitHub organization (`github.com/<owner>`) or a directory, as for `scan`
+- On the left, at the very top and *always visible*, a **filter** field: before any scan, after a failed one, and while the list under it scrolls
+  - As the user types, only the skills whose *name* contains the text, ignoring case, are listed; *no button*
+  - Empty or only spaces → every skill
   - The selected skill stays on the right, even when filtered out of the list
   - A new scan empties it
-- On the right, the **selected skill's `SKILL.md`**, rendered: its front matter as a table, then its Markdown; its path, linked as in `scan` for a GitHub repository, and its copies
+- Under it, the **skills**: the scan's summary, `<owner>/<repo> · N skills`, or `<owner> · N skills in M repositories` for an organization; it stays the scan's, whatever the filter
+  - Then the skills **by repository**, also for a single one: `<owner>/<repo> · K skills`, *K* the skills the filter leaves there; each skill's name and first sentence, sorted by **name**; repositories sorted as for `scan`
+  - A repository with no skill, or none the filter leaves, *is not shown*
+  - No skill matches the filter, or none at all in the repository or the organization → `No skills found`
+  - The warnings below them; for an organization, each after its repository
+- On the right, the **selected skill's `SKILL.md`**, rendered: its front matter as a table, then its Markdown; its path, linked as in `scan` for a GitHub repository, after its repository for an organization, and its copies
 - The description is *Markdown*: rendered in the list and in the table; in the list, a link is only its text
-- A failed scan → its message, in place of the skills
-- `?repo=…&skill=…` in the address: the scan and the selection survive a reload; `&filter=…`, the filter
+- A failed scan → its message, in place of the skills, under the filter
+- `?repo=…&skill=…` in the address, the skill by its id, `repo:path`: the scan and the selection survive a reload; `&filter=…`, the filter
 - `GITHUB_TOKEN`, as for `scan`; *nothing is stored*
 ## Safety
 - Listens on *this machine only*, and answers only for `localhost`: it reads local directories

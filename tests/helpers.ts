@@ -49,6 +49,10 @@ const EXAMPLE: Recording = {
       ],
     },
   },
+  // An organization with no repository at all.
+  'https://api.github.com/users/empty': { status: 200, body: { login: 'empty', type: 'Organization' } },
+  'https://api.github.com/orgs/empty/repos?type=all&per_page=100&page=1': { status: 200, body: [] },
+  'https://api.github.com/search/code?q=filename:SKILL.md+org:empty&per_page=100&page=1': { status: 200, body: { total_count: 0, items: [] } },
   'https://api.github.com/repos/JetBrains/tools/commits/main': { status: 200, body: { sha: EXAMPLE_COMMIT } },
   'https://api.github.com/repos/JetBrains/docs/commits/trunk': { status: 200, body: { sha: EXAMPLE_COMMIT } },
   [raw('tools', '.agents/skills/release/SKILL.md')]: {

@@ -49,22 +49,35 @@ async function page(t: TestContext, search: string) {
   await import(`../src/web/app.js?page=${++pages}`);
   const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
   /** The names listed, the filtered-out ones left aside. */
-  const listed = () => [...document.querySelectorAll('#list li:not([hidden]) strong')].map((name) => name.textContent);
+  const listed = () => [...document.querySelectorAll('#list section:not([hidden]) li:not([hidden]) strong')].map((name) => name.textContent);
+  /** The repositories listed, with how many skills each shows. */
+  const groups = () => [...document.querySelectorAll('#list section:not([hidden]) h3')].map((heading) => heading.textContent);
+  /** Whether the element and all around it are shown. */
+  const shown = (selector: string) => {
+    for (let element: Element | null = $(selector); element; element = element.parentElement) if ((element as HTMLElement).hidden) return false;
+    return true;
+  };
   const type = (text: string) => {
     $<HTMLInputElement>('#filter').value = text;
     $('#filter').dispatchEvent(new dom.window.Event('input'));
   };
-  return { $, listed, type, location, window: dom.window };
+  return { $, listed, groups, shown, type, location, window: dom.window };
 }
 let pages = 0;
 const realFetch = globalThis.fetch;
 
-/** Waits for the page to show the answer to its scan. */
-async function scannedIn(view: Awaited<ReturnType<typeof page>>, repo: string) {
-  for (let i = 0; i < 200 && (view.$('#results').hidden || view.$('#summary').textContent !== `${repo} · 3 skills`); i++) {
+/** Waits for the page to show the answer to its scan, `<repo> · 3 skills` by default. */
+async function scannedIn(view: Awaited<ReturnType<typeof page>>, repo: string, summary = `${repo} · 3 skills`) {
+  for (let i = 0; i < 200 && (view.$('#scanned').hidden || view.$('#summary').textContent !== summary); i++) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  assert.equal(view.$('#summary').textContent, `${repo} · 3 skills`);
+  assert.equal(view.$('#summary').textContent, summary);
+}
+
+/** Waits for the page to show its status, a failed scan's message. */
+async function statusIn(view: Awaited<ReturnType<typeof page>>) {
+  for (let i = 0; i < 200 && !view.$('#status').classList.contains('error'); i++) await new Promise((resolve) => setTimeout(resolve, 10));
+  return view.$('#status').textContent;
 }
 
 test('serve listens on localhost:3000 by default, or on --port', async () => {
@@ -94,9 +107,9 @@ test('the page: a text field for the repository at the top, the skills on the le
   assert.match(response.headers.get('content-type')!, /^text\/html/);
   const page = await response.text();
   assert.match(page, /<header>[\s\S]*<form id="scan"[\s\S]*<input id="repo"[\s\S]*<\/header>/);
-  assert.match(page, /<main id="results" hidden>\s*<nav id="skills"[\s\S]*<article id="skill"/);
-  // Above the skills, the filter: a field applied as it is typed, with no button of its own.
-  assert.match(page, /<nav id="skills"[\s\S]*<input id="filter" type="search"[\s\S]*<ul id="list">[\s\S]*<\/nav>/);
+  assert.match(page, /<main id="results">\s*<nav id="skills"[\s\S]*<article id="skill"/);
+  // At the top of the left pane, the filter: a field applied as it is typed, with no button of its own.
+  assert.match(page, /<nav id="skills"[^>]*>\s*<input id="filter" type="search"[\s\S]*<div id="list">[\s\S]*<\/nav>/);
   assert.doesNotMatch(/<nav id="skills"[\s\S]*<\/nav>/.exec(page)![0], /<button/);
   assert.match(await (await fetch(`${web.url}/app.js`)).text(), /filter\.addEventListener\('input'/);
   for (const asset of ['/app.js', '/filter.js', '/style.css']) assert.equal((await fetch(`${web.url}${asset}`)).status, 200, asset);
@@ -247,23 +260,28 @@ test('the filter: the skills whose name contains the typed text, ignoring case; 
   assert.deepEqual(shown('kotlin'), []);
   assert.equal(noMatch(names, ''), null);
   assert.equal(noMatch(names, 'co'), null);
-  assert.equal(noMatch(names, ' kotlin '), 'No skill matches "kotlin".');
-  assert.equal(noMatch([], 'x'), 'No skill matches "x".');
+  assert.equal(noMatch(names, ' kotlin '), 'No skills found');
+  // No skill at all: the same message, whatever the filter.
+  assert.equal(noMatch([], ''), 'No skills found');
+  assert.equal(noMatch([], 'x'), 'No skills found');
 });
 
 test('the page: the selected skill stays on the right when the filter leaves it out of the list', async (t) => {
-  const view = await page(t, `?repo=${encodeURIComponent(FIXTURE)}&skill=${encodeURIComponent('.claude/skills/commits/SKILL.md')}`);
+  const view = await page(t, `?repo=${encodeURIComponent(FIXTURE)}&skill=${encodeURIComponent('fixture:.claude/skills/commits/SKILL.md')}`);
   await scannedIn(view, 'fixture');
   assert.equal(view.$('#skill h2').textContent, 'commits');
   view.type('style');
   assert.deepEqual(view.listed(), ['code-style']);
   assert.equal(view.$('#skill h2').textContent, 'commits');
   assert.equal(view.$('#no-match').hidden, true);
-  // The count stays the scan's.
+  // The summary stays the scan's; the repository's count is what the filter found.
   assert.equal(view.$('#summary').textContent, 'fixture · 3 skills');
+  assert.deepEqual(view.groups(), ['fixture · 1 skill']);
   view.type('kotlin');
   assert.deepEqual(view.listed(), []);
-  assert.equal(view.$('#no-match').textContent, 'No skill matches "kotlin".');
+  assert.deepEqual(view.groups(), []);
+  assert.equal(view.$('#no-match').hidden, false);
+  assert.equal(view.$('#no-match').textContent, 'No skills found');
   assert.equal(view.$('#skill h2').textContent, 'commits');
 });
 
@@ -298,6 +316,82 @@ test('the page: a new scan empties the filter', async (t) => {
   assert.equal(view.$<HTMLInputElement>('#filter').value, '');
   assert.equal(view.listed().length, 3);
   assert.equal(new URL(view.location.href).searchParams.has('filter'), false);
+});
+
+test('an organization: every repository with skills, sorted, each skill after its repository', async () => {
+  const { status, body } = await scanned('https://github.com/JetBrains');
+  assert.equal(status, 200);
+  assert.equal(body.id, 'JetBrains');
+  assert.deepEqual(body.organization, { id: 'JetBrains', url: 'https://github.com/JetBrains' });
+  // JetBrains/docs has no skill: not in the answer.
+  assert.deepEqual(
+    body.repositories.map(({ repository, skills }) => [repository.id, skills.map((skill) => [skill.repository, skill.name])]),
+    [
+      ['JetBrains/example', [['JetBrains/example', 'commits']]],
+      ['JetBrains/forked', [['JetBrains/forked', 'lint']]],
+      ['JetBrains/tools', [['JetBrains/tools', 'release'], ['JetBrains/tools', 'triage']]],
+    ],
+  );
+  assert.equal(skillsOf(body)[2].link, `https://github.com/JetBrains/tools/blob/${EXAMPLE_COMMIT}/.agents/skills/release/SKILL.md`);
+  assert.deepEqual(body.warnings, ['JetBrains/tools: .github/skills/triage/SKILL.md: no front matter; using the directory name']);
+});
+
+test('the page: an organization\'s skills by repository, each with how many the filter found; one with none is left out', async (t) => {
+  const tools = 'JetBrains/tools:.agents/skills/release/SKILL.md';
+  const view = await page(t, `?repo=${encodeURIComponent('github.com/JetBrains')}&skill=${encodeURIComponent(tools)}`);
+  await scannedIn(view, 'JetBrains', 'JetBrains · 4 skills in 3 repositories');
+  assert.deepEqual(view.groups(), ['JetBrains/example · 1 skill', 'JetBrains/forked · 1 skill', 'JetBrains/tools · 2 skills']);
+  assert.deepEqual(view.listed(), ['commits', 'lint', 'release', 'triage']);
+  // The selected skill, from the address: its path says which repository it is in.
+  assert.equal(view.$('#skill h2').textContent, 'release');
+  assert.equal(view.$('#skill .path').textContent, 'JetBrains/tools/.agents/skills/release/SKILL.md');
+  view.type('LINT');
+  assert.deepEqual(view.groups(), ['JetBrains/forked · 1 skill']);
+  assert.deepEqual(view.listed(), ['lint']);
+  view.type('i');
+  assert.deepEqual(view.groups(), ['JetBrains/example · 1 skill', 'JetBrains/forked · 1 skill', 'JetBrains/tools · 1 skill']);
+  assert.equal(view.$('#no-match').hidden, true);
+  view.type('nothing like it');
+  assert.deepEqual(view.groups(), []);
+  assert.equal(view.$('#no-match').textContent, 'No skills found');
+  assert.equal(view.shown('#no-match'), true);
+  // The summary stays the scan's.
+  assert.equal(view.$('#summary').textContent, 'JetBrains · 4 skills in 3 repositories');
+  assert.equal(view.$('#skill h2').textContent, 'release');
+});
+
+test('the page: the filter is at the top of the left pane, before a scan, after one and after a failed one', async (t) => {
+  const before = await page(t, '');
+  assert.equal(before.$('#skills').firstElementChild, before.$('#filter'));
+  assert.equal(before.shown('#filter'), true);
+  assert.equal(before.shown('#summary'), false);
+
+  const failed = await page(t, `?repo=${encodeURIComponent(join(FIXTURE, 'no-such-directory'))}`);
+  assert.match(await statusIn(failed), /^Not a GitHub URL or a readable directory: /);
+  // The message, in place of the skills; the filter still there.
+  assert.equal(failed.shown('#status'), true);
+  assert.equal(failed.shown('#summary'), false);
+  assert.equal(failed.shown('#filter'), true);
+});
+
+test('the page: no skills at all, in a repository or an organization → No skills found, whatever the filter', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(join(root, 'README.md'), '# Nothing here\n');
+  const view = await page(t, `?repo=${encodeURIComponent(root)}`);
+  const name = root.split('/').at(-1)!;
+  await scannedIn(view, name, `${name} · 0 skills`);
+  assert.deepEqual(view.groups(), []);
+  assert.equal(view.shown('#filter'), true);
+  assert.equal(view.shown('#no-match'), true);
+  assert.equal(view.$('#no-match').textContent, 'No skills found');
+  view.type('x');
+  assert.equal(view.$('#no-match').textContent, 'No skills found');
+  const empty = await page(t, `?repo=${encodeURIComponent('github.com/empty')}`);
+  await scannedIn(empty, 'empty', 'empty · 0 skills');
+  assert.deepEqual(empty.groups(), []);
+  assert.equal(empty.$('#no-match').textContent, 'No skills found');
+  assert.equal(empty.shown('#no-match'), true);
 });
 
 test('only this machine is served: another host name is refused', async () => {
