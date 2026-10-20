@@ -12,25 +12,29 @@
     <h1>Skill Atlas</h1>
     <form id="scan" role="search">
       <input id="repo" name="repo" type="text" required autofocus spellcheck="false" autocomplete="off"
-        placeholder="https://github.com/owner/repo, or a directory" aria-label="Repository to search">
+        placeholder="https://github.com/owner/repo, https://github.com/owner, or a directory" aria-label="Repository or organization to search">
       <button type="submit">Scan</button>
     </form>
   </header>
-  <p id="status" role="status" hidden></p>
-  <main id="results" hidden>
+  <main id="results">
     <nav id="skills" aria-label="Skills">
-      <h2 id="summary"></h2>
       <input id="filter" type="search" spellcheck="false" autocomplete="off"
         placeholder="Filter by name" aria-label="Filter skills by name" aria-controls="list">
-      <p id="no-match" class="placeholder" role="status" hidden></p>
-      <ul id="list"></ul>
-      <details id="warnings" hidden>
-        <summary></summary>
-        <ul></ul>
-      </details>
+      <div id="found">
+        <p id="status" role="status" hidden></p>
+        <div id="scanned" hidden>
+          <h2 id="summary"></h2>
+          <p id="no-match" class="placeholder" role="status" hidden></p>
+          <div id="list"></div>
+          <details id="warnings" hidden>
+            <summary></summary>
+            <ul></ul>
+          </details>
+        </div>
+      </div>
     </nav>
     <article id="skill" aria-live="polite">
-      <p class="placeholder">Select a skill to read its SKILL.md.</p>
+      <p class="placeholder">Scan a GitHub repository, a GitHub organization or a directory.</p>
     </article>
   </main>
 </body>

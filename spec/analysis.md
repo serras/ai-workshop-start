@@ -1,8 +1,8 @@
 # Repository analysis
 ## Input
-A **GitHub repository** URL, or a local directory
+A **GitHub repository** URL, a **GitHub organization** URL, or a local directory
 ## Output
-Every `SKILL.md`: **name**, **description**, **link**
+Every `SKILL.md`: **name**, **description**, **link**; for an organization, by repository
 ## Architecture
 Core: fetch → find → parse. CLI and [web view](web.md): *thin clients*.
 Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text
@@ -14,6 +14,13 @@ Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text
 - End-to-end: `JetBrains/MPS`, `JetBrains/android`, `JetBrains/kotlin` and `JetBrains/koog`, each at a fixed commit, print what [tests/e2e](../tests/e2e/) holds
 - Malformed front matter → a *warning*, the scan goes on
 - Unreachable repository → a clear message, exit code 1
+### A whole organization
+- `github.com/<owner>`: every repository of the organization, or of the user's account, scanned as each would be on its own, at its *default branch*
+- Repositories sorted by id, *ignoring case*; skills by name within each; a repository's warnings after its id: `<owner>/<repo>: …`
+- With `GITHUB_TOKEN`: **one code search** for the whole owner; only the repositories it finds are scanned; over the 1000 results it answers → a warning that some skills may be missing. Code search leaves *forks* out: each fork's tree
+- Without it: each repository's tree, a few at a time
+- Empty and disabled repositories: nothing to scan, *skipped*; an empty repository scanned on its own → a clear message, exit code 1
+- Unknown organization → a clear message, exit code 1
 ### What is a project skill?
 - Only folders usually containing skills (`agents/skills`, `agent/skills`, `.claude/skills`, and similar roots for other tools) should be considered
 - The same skill may be duplicated (one copy per agent), but those should count as a single skill. For example, `.agents/skills` and `.claude/skills` may contain the same skill, but should count as one.

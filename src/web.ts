@@ -5,12 +5,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import { AtlasError } from './core/errors.ts';
 import { filesLink, skillLink } from './core/model.ts';
-import { scan, type Source } from './core/scan.ts';
+import { isOrganization, scan, scanOrganization, type OrganizationSource, type ScanResult, type Source } from './core/scan.ts';
 import { renderSkill, renderSummary } from './render.ts';
 
 export type WebOptions = {
   /** Opens what the user asked to scan, as the CLI does. */
-  open(input: string): Promise<Source>;
+  open(input: string): Promise<Source | OrganizationSource>;
   /** 0 for any free port. */
   port: number;
 };
@@ -87,9 +87,27 @@ async function handle(request: IncomingMessage, response: ServerResponse, option
 /** What `/api/scan` answers; `{ error }` when the scan fails. */
 export type ScanAnswer = Awaited<ReturnType<typeof scanJson>>;
 
-/** What the page shows: the repository, its skills with their HTML and their summaries, and the warnings. */
+/**
+ * What the page shows: what was scanned, a repository or an organization; each repository with
+ * skills, the skills with their HTML and their summaries; and the warnings. A repository on its own
+ * is there even without skills.
+ */
 async function scanJson(repo: string, options: WebOptions) {
-  const { repository, skills, warnings } = await scan(await options.open(repo));
+  const source = await options.open(repo);
+  if (!isOrganization(source)) {
+    const result = await scan(source);
+    return { id: result.repository.id, organization: undefined, repositories: [repositoryJson(result)], warnings: result.warnings };
+  }
+  const { organization, repositories, warnings } = await scanOrganization(source);
+  return {
+    id: organization.id,
+    organization,
+    repositories: repositories.filter((result) => result.skills.length > 0).map(repositoryJson),
+    warnings,
+  };
+}
+
+function repositoryJson({ repository, skills }: ScanResult) {
   const root = filesLink(repository);
   return {
     repository,
@@ -97,6 +115,7 @@ async function scanJson(repo: string, options: WebOptions) {
       const link = skillLink(repository, skill);
       return {
         id: skill.id,
+        repository: skill.repository,
         name: skill.name,
         description: skill.description,
         summary: renderSummary(skill.description, { link, root }),
@@ -106,7 +125,6 @@ async function scanJson(repo: string, options: WebOptions) {
         html: renderSkill(skill.text, { link, root }),
       };
     }),
-    warnings,
   };
 }
 
