@@ -10,6 +10,8 @@ Skill: id = `repo:path`, name, description, commit
 - **GitHub API**, no clone; *under 5 s* for intellij-community
 - The name: front matter, else the directory
 - The link pins the *scanned commit*
+- A `/tree/<ref>` URL pins the commit: listed through its tree, since code search sees only the default branch; an unknown ref → a clear message, exit code 1
+- End-to-end: `JetBrains/MPS`, `JetBrains/android`, `JetBrains/kotlin` and `JetBrains/koog`, each at a fixed commit, print what [tests/e2e](../tests/e2e/) holds
 - Malformed front matter → a *warning*, the scan goes on
 - Unreachable repository → a clear message, exit code 1
 ### What is a project skill?

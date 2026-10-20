@@ -22,6 +22,9 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+        env:
+          # The end-to-end tests scan real repositories; without a token they are skipped.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # The real CLI on the fixture repository, as a user would run it: it must exit 0.
       - name: Smoke test
         run: |
