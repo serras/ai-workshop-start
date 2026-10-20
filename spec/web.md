@@ -26,3 +26,8 @@
 - Nothing in a `SKILL.md` runs: raw HTML is shown as text; links keep only web addresses, relative ones resolved against the file and `/…` against the repository's files at the scanned commit, as GitHub does; images keep only `https:` addresses, the ones the page loads, and are their text otherwise
 - A page on `http://localhost` cannot open `file:` addresses: for a local directory, the path and the links are only text
 - A port in use → a clear message, exit code 1
+## Demo
+`npm run demo`: [the demo](../demo/script.ts) plays every feature above on a fake GitHub, [no network](../demo/source.ts), and takes its key moments into [shots/](../shots/), with a video, `shots/demo.webm`
+- `npm run test:visual` plays it again: each shot must be the one in `shots/`, *pixel for pixel*; a missing one fails too
+- The shots are taken on macOS, and compared on macOS in CI; a failure posts each differing shot, expected, actual and diff, in the run's summary and on the pull request
+- A change to the page that shows → `npm run demo`, and the new shots committed with it

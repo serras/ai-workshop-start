@@ -22,5 +22,9 @@ and the selected `SKILL.md` on the right.
 
 Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests.
 
+`npm run demo` plays every feature of the web view on a fake GitHub and takes its shots into
+[shots/](shots/), with a video; `npm run test:visual` checks the page still looks exactly like them
+(`npx playwright install chromium` first).
+
 - [spec/](spec/): what it does. [AGENTS.md](AGENTS.md): the definition of done.
 - [fixture/](fixture/README.md): a small repository for the tests.

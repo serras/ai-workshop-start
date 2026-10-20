@@ -1,0 +1,84 @@
+# The demo of demo/script.ts played in a browser: every shot must be the one in shots/, pixel for
+# pixel. The shots are taken on macOS (`npm run demo`), so the comparison runs on macOS too. When
+# one differs, its expected, actual and diff images are posted: in the run's summary, and on the
+# pull request.
+name: Visual
+on:
+  push:
+  pull_request:
+permissions:
+  contents: write # the images of a failed run, on the visual-diffs branch
+  pull-requests: write # the comment that shows them
+concurrency:
+  group: visual-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  shots:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium
+      - name: Shots
+        run: npm run test:visual
+        env:
+          CI: true
+      - name: Keep the report
+        if: failure()
+        id: report
+        uses: actions/upload-artifact@v5
+        with:
+          name: visual-report
+          path: |
+            playwright-report/
+            test-results/
+      # The images, on a branch of their own so that the summary and the comment can show them;
+      # a pull request from a fork cannot push: then only the report's link.
+      - name: Post the diff
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+          PR: ${{ github.event.pull_request.number }}
+          REPORT: ${{ steps.report.outputs.artifact-url }}
+        run: |
+          shots=$(find test-results -name '*-actual.png' | sort)
+          {
+            echo "### The shots differ from shots/"
+            echo
+            echo "If the change is intended, run \`npm run demo\` on macOS and commit shots/. [Report]($REPORT)"
+            echo
+          } > body.md
+          [ -n "$shots" ] || echo "No shot was taken: see the report." >> body.md
+          images=$(mktemp -d)
+          mkdir -p "$images/$RUN"
+          for actual in $shots; do cp "$(dirname "$actual")"/*.png "$images/$RUN/"; done
+          if [ -n "$shots" ] && (
+            cd "$images" &&
+            git init -q &&
+            git remote add origin "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" &&
+            { git fetch -q --depth 1 origin visual-diffs 2>/dev/null && git reset -q --soft FETCH_HEAD || true; } &&
+            git add "$RUN" &&
+            git -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' commit -qm "Visual diff of run $RUN" &&
+            git push -q origin HEAD:visual-diffs
+          ); then
+            echo "| Shot | Expected | Actual | Diff |" >> body.md
+            echo "| --- | --- | --- | --- |" >> body.md
+            for actual in $shots; do
+              name=$(basename "$actual" -actual.png)
+              image() { [ -f "$images/$RUN/$name-$1.png" ] && echo "![$1](https://github.com/$REPO/blob/visual-diffs/$RUN/$name-$1.png?raw=true)" || echo "—"; }
+              echo "| \`$name\` | $(image expected) | $(image actual) | $(image diff) |" >> body.md
+            done
+          else
+            for actual in $shots; do echo "- \`$(basename "$actual" -actual.png)\`" >> body.md; done
+          fi
+          cat body.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$PR" ]; then
+            gh pr comment "$PR" --repo "$REPO" --body-file body.md --edit-last --create-if-none || true
+          fi
