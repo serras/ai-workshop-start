@@ -6,7 +6,8 @@ import { run } from '../src/commands.ts';
 import { openGitHub, openGitHubOrganization, parseGitHubOrganization, parseGitHubUrl } from '../src/core/github.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
 import { scanOrganization } from '../src/core/scan.ts';
-import { atlas, EXAMPLE_COMMIT, github } from './helpers.ts';
+import { openDirectory } from '../src/local.ts';
+import { atlas, AVATAR, EXAMPLE_COMMIT, FIXTURE, github } from './helpers.ts';
 
 const COMMIT = EXAMPLE_COMMIT;
 
@@ -22,7 +23,12 @@ test('github.com/<owner> is an organization; github.com/<owner>/<repo> a reposit
 
 test('an organization, with a token: one code search, forks through their trees; sorted; warnings after the repository', async () => {
   const result = await scanOrganization(await openGitHubOrganization('https://github.com/JetBrains', { fetch: github, token: 'test' }));
-  assert.deepEqual(result.organization, { id: 'JetBrains', url: 'https://github.com/JetBrains' });
+  assert.deepEqual(result.organization, {
+    id: 'JetBrains',
+    url: 'https://github.com/JetBrains',
+    avatar: AVATAR,
+    homepage: 'https://www.jetbrains.com/',
+  });
   // blank: nothing found by code search, so not even opened; forked: through its tree.
   assert.deepEqual(
     result.repositories.map(({ repository, skills }) => [repository.id, skills.map((skill) => [skill.name, skill.copies])]),
@@ -35,6 +41,10 @@ test('an organization, with a token: one code search, forks through their trees;
   );
   const tools = result.repositories[3];
   assert.equal(tools.repository.commit, COMMIT);
+  assert.deepEqual(
+    result.repositories.map(({ repository }) => repository.stars),
+    [12, 56234, 1250000, 999],
+  );
   assert.equal(tools.skills[0].id, 'JetBrains/tools:.agents/skills/release/SKILL.md');
   assert.deepEqual(result.warnings, ['JetBrains/tools: .github/skills/triage/SKILL.md: no front matter; using the directory name']);
 });
@@ -169,4 +179,54 @@ test('scan of an organization without any skill → No skills found; of an unkno
   assert.equal(await run(['scan', 'github.com/empty'], context), 0);
   assert.equal(await run(['scan', 'github.com/nobody'], context), 1);
   assert.deepEqual(printed, ['empty · 0 skills', 'No skills found', 'error: Organization not found: https://github.com/nobody']);
+});
+
+test('a repository: its stars; its owner, organization or user, with the avatar and homepage of its profile, asked for only when wanted', async () => {
+  const asked: string[] = [];
+  const fetch = replay({
+    ...ACME,
+    'https://api.github.com/repos/acme/api': { status: 200, body: { full_name: 'acme/api', default_branch: 'main', stargazers_count: 7 } },
+    'https://api.github.com/users/acme': {
+      status: 200,
+      body: { login: 'acme', type: 'Organization', avatar_url: 'https://avatars.example/acme', blog: 'http://acme.example/about' },
+    },
+  });
+  const source = await openGitHub('github.com/acme/api', { fetch: (url, init) => (asked.push(url), fetch(url, init)) });
+  assert.equal(source.repository.stars, 7);
+  assert.equal(asked.some((url) => url.includes('/users/')), false);
+  assert.deepEqual(await source.owner!(), {
+    id: 'acme',
+    url: 'https://github.com/acme',
+    avatar: 'https://avatars.example/acme',
+    homepage: 'http://acme.example/about',
+  });
+  // A local directory: no stars, no owner.
+  const local = await openDirectory(FIXTURE);
+  assert.equal(local.repository.stars, undefined);
+  assert.equal(local.owner, undefined);
+});
+
+test('a profile without a homepage, or with one that is not a web address, or an avatar not over https: only what is', async () => {
+  const account = (login: string, avatar_url: string | null, blog: string | null) => ({
+    [`https://api.github.com/users/${login}`]: { status: 200, body: { login, type: 'User', avatar_url, blog } },
+    [`https://api.github.com/users/${login}/repos?type=owner&per_page=100&page=1`]: { status: 200, body: [] },
+  });
+  const fetch = replay({
+    ...account('blank', 'https://avatars.example/blank', ''),
+    ...account('spaces', null, '   '),
+    ...account('script', 'http://avatars.example/script', 'javascript:alert(1)'),
+    ...account('mail', 'data:image/png;base64,AAAA', 'mailto:someone@example.com'),
+    ...account('plain', 'https://avatars.example/plain', ' plain.example '),
+  });
+  const organization = async (login: string) => (await openGitHubOrganization(`github.com/${login}`, { fetch })).organization;
+  assert.deepEqual(await organization('blank'), { id: 'blank', url: 'https://github.com/blank', avatar: 'https://avatars.example/blank' });
+  assert.deepEqual(await organization('spaces'), { id: 'spaces', url: 'https://github.com/spaces' });
+  assert.deepEqual(await organization('script'), { id: 'script', url: 'https://github.com/script' });
+  assert.deepEqual(await organization('mail'), { id: 'mail', url: 'https://github.com/mail' });
+  assert.deepEqual(await organization('plain'), {
+    id: 'plain',
+    url: 'https://github.com/plain',
+    avatar: 'https://avatars.example/plain',
+    homepage: 'https://plain.example/',
+  });
 });

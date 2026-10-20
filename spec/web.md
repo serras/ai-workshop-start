@@ -6,8 +6,12 @@
   - Empty or only spaces → every skill
   - The selected skill stays on the right, even when filtered out of the list
   - A new scan empties it
-- Under it, the **skills**: the scan's summary, `<owner>/<repo> · N skills`, or `<owner> · N skills in M repositories` for an organization; it stays the scan's, whatever the filter
+- Under it, for GitHub, the **owner**: the organization scanned, or the organization or user owning the repository; its *avatar*, its login, linked to its GitHub page, and its *homepage*, linked, shown without `https://` and a trailing `/`; whichever of them [its profile lists](analysis.md#details)
+  - Nothing for a local directory
+  - GitHub does not answer for the owner's profile → its login only, and a warning
+- Then the **skills**: the scan's summary, `<owner>/<repo> · N skills`, or `<owner> · N skills in M repositories` for an organization; it stays the scan's, whatever the filter
   - Then the skills **by repository**, also for a single one: `<owner>/<repo> · K skills`, *K* the skills the filter leaves there; each skill's name and first sentence, sorted by **name**; repositories sorted as for `scan`
+  - After each repository, its GitHub **stars**, `★ 56.2k`: under 1000 as they are; else in thousands, `k`, or millions, `m`, *rounded* to one decimal, without a `.0` (`1k`, `999.9k`, `1m`); the exact number on hover; none for a local directory
   - A repository with no skill, or none the filter leaves, *is not shown*
   - No skill matches the filter, or none at all in the repository or the organization → `No skills found`
   - The warnings below them; for an organization, each after its repository
@@ -18,6 +22,7 @@
 - `GITHUB_TOKEN`, as for `scan`; *nothing is stored*
 ## Safety
 - Listens on *this machine only*, and answers only for `localhost`: it reads local directories
+- The owner's homepage is only ever a web address, and its avatar an `https:` one
 - Nothing in a `SKILL.md` runs: raw HTML is shown as text; links keep only web addresses, relative ones resolved against the file and `/…` against the repository's files at the scanned commit, as GitHub does; images keep only `https:` addresses, the ones the page loads, and are their text otherwise
 - A page on `http://localhost` cannot open `file:` addresses: for a local directory, the path and the links are only text
 - A port in use → a clear message, exit code 1

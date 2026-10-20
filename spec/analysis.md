@@ -6,6 +6,7 @@ Every `SKILL.md`: **name**, **description**, **link**; for an organization, by r
 ## Architecture
 Core: fetch → find → parse. CLI and [web view](web.md): *thin clients*.
 Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text
+Repository: on GitHub, also its *stars*. Organization, or the user owning a repository: also its *avatar* and *homepage*
 ## Details
 - **GitHub API**, no clone; *under 5 s* for intellij-community
 - The name: front matter, else the directory
@@ -14,6 +15,8 @@ Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text
 - End-to-end: `JetBrains/MPS`, `JetBrains/android`, `JetBrains/kotlin` and `JetBrains/koog`, each at a fixed commit, print what [tests/e2e](../tests/e2e/) holds
 - Malformed front matter → a *warning*, the scan goes on
 - Unreachable repository → a clear message, exit code 1
+- The owner's avatar and homepage: what its GitHub profile lists, for an organization or a user; the avatar only over `https:`; the homepage only a web address, `https://` added when it has no scheme (`www.jetbrains.com` → `https://www.jetbrains.com/`); otherwise *left out*
+- For a single repository, the owner's profile is one more request, made only when it is shown (the [web view](web.md)); the CLI prints neither
 ### A whole organization
 - `github.com/<owner>`: every repository of the organization, or of the user's account, scanned as each would be on its own, at its *default branch*
 - Repositories sorted by id, *ignoring case*; skills by name within each; a repository's warnings after its id: `<owner>/<repo>: …`

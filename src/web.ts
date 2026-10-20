@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { AtlasError } from './core/errors.ts';
-import { filesLink, skillLink } from './core/model.ts';
+import { filesLink, skillLink, type Organization } from './core/model.ts';
 import { isOrganization, scan, scanOrganization, type OrganizationSource, type ScanResult, type Source } from './core/scan.ts';
 import { renderSkill, renderSummary } from './render.ts';
 
@@ -21,6 +21,7 @@ const PAGES: Record<string, { file: string; type: string }> = {
   '/': { file: 'index.html', type: 'text/html; charset=utf-8' },
   '/app.js': { file: 'app.js', type: 'text/javascript; charset=utf-8' },
   '/filter.js': { file: 'filter.js', type: 'text/javascript; charset=utf-8' },
+  '/stars.js': { file: 'stars.js', type: 'text/javascript; charset=utf-8' },
   '/style.css': { file: 'style.css', type: 'text/css; charset=utf-8' },
 };
 
@@ -88,23 +89,43 @@ async function handle(request: IncomingMessage, response: ServerResponse, option
 export type ScanAnswer = Awaited<ReturnType<typeof scanJson>>;
 
 /**
- * What the page shows: what was scanned, a repository or an organization; each repository with
- * skills, the skills with their HTML and their summaries; and the warnings. A repository on its own
- * is there even without skills.
+ * What the page shows: what was scanned, a repository or an organization; on GitHub, its owner, the
+ * organization or the user, with its avatar and homepage; each repository with skills, the skills
+ * with their HTML and their summaries; and the warnings. A repository on its own is there even
+ * without skills.
  */
 async function scanJson(repo: string, options: WebOptions) {
   const source = await options.open(repo);
   if (!isOrganization(source)) {
-    const result = await scan(source);
-    return { id: result.repository.id, organization: undefined, repositories: [repositoryJson(result)], warnings: result.warnings };
+    const [result, owner] = await Promise.all([scan(source), ownerOf(source)]);
+    return {
+      id: result.repository.id,
+      organization: undefined,
+      owner: owner.organization,
+      repositories: [repositoryJson(result)],
+      warnings: [...result.warnings, ...owner.warnings],
+    };
   }
   const { organization, repositories, warnings } = await scanOrganization(source);
   return {
     id: organization.id,
     organization,
+    owner: organization,
     repositories: repositories.filter((result) => result.skills.length > 0).map(repositoryJson),
     warnings,
   };
+}
+
+/** The repository's owner, for a GitHub one; without its profile, and a warning, if GitHub does not answer. */
+async function ownerOf(source: Source): Promise<{ organization?: Organization; warnings: string[] }> {
+  if (!source.owner) return { warnings: [] };
+  try {
+    return { organization: await source.owner(), warnings: [] };
+  } catch (error) {
+    if (!(error instanceof AtlasError)) throw error;
+    const id = source.repository.organization;
+    return { organization: { id, url: `https://github.com/${id}` }, warnings: [`${id}: no avatar or homepage: ${error.message}`] };
+  }
 }
 
 function repositoryJson({ repository, skills }: ScanResult) {

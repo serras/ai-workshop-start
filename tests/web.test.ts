@@ -12,10 +12,13 @@ import { pathToFileURL } from 'node:url';
 import { test, type TestContext } from 'node:test';
 import { JSDOM } from 'jsdom';
 import { run } from '../src/commands.ts';
+import { openGitHub } from '../src/core/github.ts';
+import { replay } from '../src/core/replay.ts';
 import { renderSkill } from '../src/render.ts';
 import { startWeb, type ScanAnswer } from '../src/web.ts';
 import { matches, noMatch } from '../src/web/filter.js';
-import { CLI, EXAMPLE_COMMIT, FIXTURE, open } from './helpers.ts';
+import { stars } from '../src/web/stars.js';
+import { AVATAR, CLI, EXAMPLE_COMMIT, FIXTURE, open } from './helpers.ts';
 
 const web = await startWeb({ open, port: 0 });
 test.after(() => web.close());
@@ -112,7 +115,7 @@ test('the page: a text field for the repository at the top, the skills on the le
   assert.match(page, /<nav id="skills"[^>]*>\s*<input id="filter" type="search"[\s\S]*<div id="list">[\s\S]*<\/nav>/);
   assert.doesNotMatch(/<nav id="skills"[\s\S]*<\/nav>/.exec(page)![0], /<button/);
   assert.match(await (await fetch(`${web.url}/app.js`)).text(), /filter\.addEventListener\('input'/);
-  for (const asset of ['/app.js', '/filter.js', '/style.css']) assert.equal((await fetch(`${web.url}${asset}`)).status, 200, asset);
+  for (const asset of ['/app.js', '/filter.js', '/stars.js', '/style.css']) assert.equal((await fetch(`${web.url}${asset}`)).status, 200, asset);
   assert.equal((await fetch(`${web.url}/no-such-page`)).status, 404);
 });
 
@@ -322,7 +325,12 @@ test('an organization: every repository with skills, sorted, each skill after it
   const { status, body } = await scanned('https://github.com/JetBrains');
   assert.equal(status, 200);
   assert.equal(body.id, 'JetBrains');
-  assert.deepEqual(body.organization, { id: 'JetBrains', url: 'https://github.com/JetBrains' });
+  assert.deepEqual(body.organization, {
+    id: 'JetBrains',
+    url: 'https://github.com/JetBrains',
+    avatar: AVATAR,
+    homepage: 'https://www.jetbrains.com/',
+  });
   // JetBrains/docs has no skill: not in the answer.
   assert.deepEqual(
     body.repositories.map(({ repository, skills }) => [repository.id, skills.map((skill) => [skill.repository, skill.name])]),
@@ -392,6 +400,90 @@ test('the page: no skills at all, in a repository or an organization → No skil
   assert.deepEqual(empty.groups(), []);
   assert.equal(empty.$('#no-match').textContent, 'No skills found');
   assert.equal(empty.shown('#no-match'), true);
+});
+
+test('stars: as they are under 1000; else in thousands or millions, rounded to one decimal, without a .0', () => {
+  assert.deepEqual(
+    [0, 1, 999, 1000, 1049, 1050, 12_345, 56_234, 56_250, 999_949, 999_950, 1_250_000, 12_340_000].map(stars),
+    ['0', '1', '999', '1k', '1k', '1.1k', '12.3k', '56.2k', '56.3k', '999.9k', '1m', '1.3m', '12.3m'],
+  );
+});
+
+test('a GitHub repository: its stars and its owner, with the avatar and homepage of its profile; none for a directory', async () => {
+  const { body } = await scanned('https://github.com/JetBrains/example');
+  assert.equal(body.repositories[0].repository.stars, 56234);
+  assert.deepEqual(body.owner, { id: 'JetBrains', url: 'https://github.com/JetBrains', avatar: AVATAR, homepage: 'https://www.jetbrains.com/' });
+  assert.deepEqual(body.warnings, []);
+  const organization = (await scanned('github.com/JetBrains')).body;
+  assert.deepEqual(organization.owner, organization.organization);
+  assert.deepEqual(
+    organization.repositories.map(({ repository }) => [repository.id, repository.stars]),
+    [
+      ['JetBrains/example', 56234],
+      ['JetBrains/forked', 1250000],
+      ['JetBrains/tools', 999],
+    ],
+  );
+  const local = (await scanned(FIXTURE)).body;
+  assert.equal(local.owner, undefined);
+  assert.equal(local.repositories[0].repository.stars, undefined);
+});
+
+test('the owner\'s profile unanswered: the scan still shows, with the owner\'s login only and a warning', async (t) => {
+  const github = replay({
+    'https://api.github.com/repos/acme/api': { status: 200, body: { full_name: 'acme/api', default_branch: 'main', stargazers_count: 3 } },
+    'https://api.github.com/repos/acme/api/commits/main': { status: 200, body: { sha: EXAMPLE_COMMIT } },
+    [`https://api.github.com/repos/acme/api/git/trees/${EXAMPLE_COMMIT}?recursive=1`]: { status: 200, body: { truncated: false, tree: [] } },
+  });
+  const server = await startWeb({ open: (input) => openGitHub(input, { fetch: github }), port: 0 });
+  t.after(() => server.close());
+  const body = (await (await realFetch(`${server.url}/api/scan?repo=${encodeURIComponent('github.com/acme/api')}`)).json()) as ScanAnswer;
+  assert.deepEqual(body.owner, { id: 'acme', url: 'https://github.com/acme' });
+  assert.deepEqual(body.warnings, ['acme: no avatar or homepage: Cannot reach GitHub: not recorded: https://api.github.com/users/acme']);
+  assert.equal(body.repositories[0].repository.stars, 3);
+});
+
+test('the page: the owner above the skills, its avatar, login and homepage; each repository\'s stars after its id', async (t) => {
+  const view = await page(t, `?repo=${encodeURIComponent('github.com/JetBrains/example')}`);
+  await scannedIn(view, 'JetBrains/example', 'JetBrains/example · 1 skill');
+  assert.equal(view.shown('#owner'), true);
+  assert.equal(view.$('#owner').nextElementSibling, view.$('#summary'));
+  assert.equal(view.$<HTMLImageElement>('#owner img').src, AVATAR);
+  assert.equal(view.$<HTMLAnchorElement>('#owner .login').href, 'https://github.com/JetBrains');
+  assert.equal(view.$('#owner .login').textContent, 'JetBrains');
+  assert.equal(view.$<HTMLAnchorElement>('#owner .homepage').href, 'https://www.jetbrains.com/');
+  assert.equal(view.$('#owner .homepage').textContent, 'www.jetbrains.com');
+  assert.equal(view.$('#list .stars').textContent, '★ 56.2k');
+  assert.equal(view.$('#list .stars').title, '56,234 stars');
+
+  const organization = await page(t, `?repo=${encodeURIComponent('github.com/JetBrains')}`);
+  await scannedIn(organization, 'JetBrains', 'JetBrains · 4 skills in 3 repositories');
+  assert.equal(organization.$('#owner .login').textContent, 'JetBrains');
+  assert.deepEqual(
+    [...organization.window.document.querySelectorAll('#list section')].map((section) => [
+      section.querySelector('h3')!.textContent,
+      section.querySelector('.stars')!.textContent,
+    ]),
+    [
+      ['JetBrains/example · 1 skill', '★ 56.2k'],
+      ['JetBrains/forked · 1 skill', '★ 1.3m'],
+      ['JetBrains/tools · 2 skills', '★ 999'],
+    ],
+  );
+});
+
+test('the page: an owner whose profile lists no avatar or homepage → its login only; a directory → no owner, no stars', async (t) => {
+  const empty = await page(t, `?repo=${encodeURIComponent('github.com/empty')}`);
+  await scannedIn(empty, 'empty', 'empty · 0 skills');
+  assert.equal(empty.shown('#owner'), true);
+  assert.equal(empty.$('#owner .login').textContent, 'empty');
+  assert.equal(empty.shown('#owner img'), false);
+  assert.equal(empty.shown('#owner .homepage'), false);
+
+  const local = await page(t, `?repo=${encodeURIComponent(FIXTURE)}`);
+  await scannedIn(local, 'fixture');
+  assert.equal(local.shown('#owner'), false);
+  assert.equal(local.$('#list .stars'), null);
 });
 
 test('only this machine is served: another host name is refused', async () => {
