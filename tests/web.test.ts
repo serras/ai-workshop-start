@@ -136,6 +136,32 @@ test('nothing in a SKILL.md runs: raw HTML is text, only web links are kept, rel
   assert.match(policy, /script-src 'self'/);
 });
 
+test('the description is Markdown, in the list of skills and in the front matter table', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.claude/skills/styled'), { recursive: true });
+  writeFileSync(
+    join(root, '.claude/skills/styled/SKILL.md'),
+    [
+      '---',
+      'name: styled',
+      "description: Run `npm.test` with **care**, see [the docs](https://example.com/docs). Then <i>stop</i>.",
+      '---',
+    ].join('\n'),
+  );
+  const { body } = await scanned(root);
+  const [skill] = body.skills;
+  // The first sentence only, not cut at the `.` in the code span; the link is only its text, in a button.
+  assert.equal(skill.summary, 'Run <code>npm.test</code> with <strong>care</strong>, see the docs.');
+  assert.equal(
+    skill.html,
+    '<table class="front-matter"><tbody><tr><th>name</th><td>styled</td></tr>' +
+      '<tr><th>description</th><td>Run <code>npm.test</code> with <strong>care</strong>, see ' +
+      '<a href="https://example.com/docs" target="_blank" rel="noopener noreferrer">the docs</a>. ' +
+      'Then &#60;i&#62;stop&#60;/i&#62;.</td></tr></tbody></table>\n',
+  );
+});
+
 test('only this machine is served: another host name is refused', async () => {
   const status = await new Promise<number>((resolve, reject) => {
     const url = new URL(web.url);

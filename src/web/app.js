@@ -49,7 +49,7 @@ async function scan(repo, selected) {
   }
 }
 
-/** One skill in the list: its name and the first sentence of its description. */
+/** One skill in the list: its name and the first sentence of its description, rendered by the server. */
 function item(skill) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -57,9 +57,9 @@ function item(skill) {
   const name = document.createElement('strong');
   name.textContent = skill.name;
   button.append(name);
-  if (skill.description) {
+  if (skill.summary) {
     const description = document.createElement('span');
-    description.textContent = firstSentence(skill.description);
+    description.innerHTML = skill.summary;
     button.append(description);
   }
   button.addEventListener('click', () => select(skill));
@@ -129,9 +129,4 @@ function remember(changes) {
     else url.searchParams.delete(key);
   }
   history.replaceState(null, '', url);
-}
-
-function firstSentence(text) {
-  const line = text.replace(/\s+/g, ' ').trim();
-  return /^.*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line;
 }

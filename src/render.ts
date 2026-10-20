@@ -1,6 +1,6 @@
-// A SKILL.md as HTML for the web view: its front matter as a table, then its Markdown. The file
-// comes from any repository, so nothing in it runs: raw HTML is shown as text, and links keep
-// only web addresses.
+// A SKILL.md as HTML for the web view: its front matter as a table, then its Markdown; its
+// description, Markdown too, also on its own for the list of skills. The file comes from any
+// repository, so nothing in it runs: raw HTML is shown as text, and links keep only web addresses.
 import { Marked, type Tokens } from 'marked';
 import { stringify } from 'yaml';
 import { parseSkill } from './core/parse.ts';
@@ -15,14 +15,35 @@ export function renderSkill(text: string, link: string): string {
   ];
   const table = properties.length
     ? `<table class="front-matter"><tbody>${properties
-        .map(([key, value]) => `<tr><th>${escape(key)}</th><td>${escape(show(value))}</td></tr>`)
+        .map(([key, value]) => {
+          const cell = key === 'description' ? inline(String(value), link) : escape(show(value));
+          return `<tr><th>${escape(key)}</th><td>${cell}</td></tr>`;
+        })
         .join('')}</tbody></table>\n`
     : '';
   const warning = parsed.warning ? `<p class="warning">${escape(parsed.warning)}</p>\n` : '';
   return warning + table + markdown(link).parse(parsed.body, { async: false });
 }
 
-function markdown(base: string): Marked {
+/**
+ * The description's first sentence, its Markdown rendered for the list of skills; links and images
+ * are only their text there, since each skill in the list is a button.
+ */
+export function renderSummary(description: string, link: string): string {
+  return inline(firstSentence(description), link, false);
+}
+
+/** The first sentence of the Markdown; a `.` in a code span does not end one. */
+function firstSentence(text: string): string {
+  const line = text.replace(/\s+/g, ' ').trim();
+  return /^(?:`[^`]*`|[^`])*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line;
+}
+
+function inline(text: string, base: string, links = true): string {
+  return markdown(base, links).parseInline(text, { async: false });
+}
+
+function markdown(base: string, links = true): Marked {
   return new Marked({
     gfm: true,
     renderer: {
@@ -31,12 +52,12 @@ function markdown(base: string): Marked {
       },
       link({ href, title, tokens }: Tokens.Link) {
         const label = this.parser.parseInline(tokens);
-        const url = safeUrl(href, base);
+        const url = links && safeUrl(href, base);
         if (!url) return label;
         return `<a href="${escape(url)}"${title ? ` title="${escape(title)}"` : ''} target="_blank" rel="noopener noreferrer">${label}</a>`;
       },
       image({ href, title, text }: Tokens.Image) {
-        const url = safeUrl(href, base, true);
+        const url = links && safeUrl(href, base, true);
         if (!url) return escape(text);
         return `<img src="${escape(url)}" alt="${escape(text)}"${title ? ` title="${escape(title)}"` : ''}>`;
       },

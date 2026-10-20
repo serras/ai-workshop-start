@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { AtlasError } from './core/errors.ts';
 import { skillLink } from './core/model.ts';
 import { scan, type Source } from './core/scan.ts';
-import { renderSkill } from './render.ts';
+import { renderSkill, renderSummary } from './render.ts';
 
 export type WebOptions = {
   /** Opens what the user asked to scan, as the CLI does. */
@@ -86,7 +86,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, option
 /** What `/api/scan` answers; `{ error }` when the scan fails. */
 export type ScanAnswer = Awaited<ReturnType<typeof scanJson>>;
 
-/** What the page shows: the repository, its skills with their HTML, and the warnings. */
+/** What the page shows: the repository, its skills with their HTML and their summaries, and the warnings. */
 async function scanJson(repo: string, options: WebOptions) {
   const { repository, skills, warnings } = await scan(await options.open(repo));
   return {
@@ -97,6 +97,7 @@ async function scanJson(repo: string, options: WebOptions) {
         id: skill.id,
         name: skill.name,
         description: skill.description,
+        summary: renderSummary(skill.description, link),
         path: skill.path,
         copies: skill.copies,
         link,
