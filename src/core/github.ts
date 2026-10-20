@@ -1,5 +1,6 @@
 import { AtlasError } from './errors.ts';
 import { SKILL_ROOTS } from './find.ts';
+import type { Organization } from './model.ts';
 import { eachLimited, type OrganizationSource, type Source } from './scan.ts';
 
 /** The part of `fetch` the core uses, so tests and the browser can pass their own. */
@@ -35,7 +36,10 @@ export function parseGitHubOrganization(input: string): string | undefined {
 }
 
 /** What GitHub says about a repository, the part the scan uses. */
-type Info = { full_name: string; default_branch: string };
+type Info = { full_name: string; default_branch: string; stargazers_count?: number };
+
+/** What GitHub says about an organization or a user, the part the scan uses. */
+type Account = { login: string; type: string; avatar_url?: string | null; blog?: string | null };
 
 /** Resolves the ref, or else the default branch, to a commit and lists the files that may be skills. */
 export async function openGitHub(input: string, options: GitHubOptions): Promise<Source> {
@@ -47,11 +51,16 @@ export async function openGitHub(input: string, options: GitHubOptions): Promise
     `Repository not found: https://github.com/${name.owner}/${name.repo}`,
   );
   // Code search only looks at the default branch: a pinned ref is listed through its tree.
-  return openRepository(github, info, name.ref, (id, sha, warnings) =>
+  const source = await openRepository(github, info, name.ref, (id, sha, warnings) =>
     options.token && !name.ref
       ? searchPaths(github, id, warnings)
       : treePaths(github, id, sha, warnings, name.ref ? '' : ' (GITHUB_TOKEN searches everywhere)'),
   );
+  const owner = source.repository.organization;
+  return {
+    ...source,
+    owner: async () => profile(await github.json<Account>(`${API}/users/${owner}`, `Organization not found: https://github.com/${owner}`)),
+  };
 }
 
 /** How many repositories of an organization are opened at the same time. */
@@ -67,7 +76,7 @@ export async function openGitHubOrganization(input: string, options: GitHubOptio
   const owner = parseGitHubOrganization(input);
   if (!owner) throw new AtlasError(`Not a GitHub organization URL: ${input}`);
   const github = client(options);
-  const account = await github.json<{ login: string; type: string }>(
+  const account = await github.json<Account>(
     `${API}/users/${owner}`,
     `Organization not found: https://github.com/${owner}`,
   );
@@ -90,7 +99,7 @@ export async function openGitHubOrganization(input: string, options: GitHubOptio
     }),
   );
   return {
-    organization: { id: login, url: `https://github.com/${login}` },
+    organization: profile(account),
     repositories: sources.filter((source) => source !== undefined),
     warnings,
   };
@@ -113,12 +122,38 @@ async function openRepository(
   const warnings: string[] = [];
   const paths = await list(id, sha, warnings);
   const [organization, repo] = id.split('/');
+  const stars = typeof info.stargazers_count === 'number' ? { stars: info.stargazers_count } : {};
   return {
-    repository: { id, organization, name: repo, url: `https://github.com/${id}`, commit: sha },
+    repository: { id, organization, name: repo, url: `https://github.com/${id}`, commit: sha, ...stars },
     paths,
     warnings,
     read: (path) => github.raw(`${RAW}/${id}/${sha}/${encodePath(path)}`),
   };
+}
+
+/**
+ * The account's avatar and homepage, when its profile has them. The homepage is often written
+ * without a scheme, `jetbrains.com`: a web address then; anything else that is not one is left out.
+ */
+function profile(account: Account): Organization {
+  const organization: Organization = { id: account.login, url: `https://github.com/${account.login}` };
+  if (account.avatar_url?.startsWith('https://')) organization.avatar = account.avatar_url;
+  const blog = account.blog?.trim();
+  if (blog) {
+    const homepage = webAddress(/^[a-z][a-z\d+.-]*:/i.test(blog) ? blog : `https://${blog}`);
+    if (homepage) organization.homepage = homepage;
+  }
+  return organization;
+}
+
+/** The address, if it is an `http:` or `https:` one. */
+function webAddress(text: string): string | undefined {
+  try {
+    const url = new URL(text);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** A repository in its owner's list. */

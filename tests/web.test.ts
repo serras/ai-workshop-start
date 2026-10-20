@@ -15,7 +15,7 @@ import { run } from '../src/commands.ts';
 import { renderSkill } from '../src/render.ts';
 import { startWeb, type ScanAnswer } from '../src/web.ts';
 import { matches, noMatch } from '../src/web/filter.js';
-import { CLI, EXAMPLE_COMMIT, FIXTURE, open } from './helpers.ts';
+import { AVATAR, CLI, EXAMPLE_COMMIT, FIXTURE, open } from './helpers.ts';
 
 const web = await startWeb({ open, port: 0 });
 test.after(() => web.close());
@@ -322,7 +322,12 @@ test('an organization: every repository with skills, sorted, each skill after it
   const { status, body } = await scanned('https://github.com/JetBrains');
   assert.equal(status, 200);
   assert.equal(body.id, 'JetBrains');
-  assert.deepEqual(body.organization, { id: 'JetBrains', url: 'https://github.com/JetBrains' });
+  assert.deepEqual(body.organization, {
+    id: 'JetBrains',
+    url: 'https://github.com/JetBrains',
+    avatar: AVATAR,
+    homepage: 'https://www.jetbrains.com/',
+  });
   // JetBrains/docs has no skill: not in the answer.
   assert.deepEqual(
     body.repositories.map(({ repository, skills }) => [repository.id, skills.map((skill) => [skill.repository, skill.name])]),

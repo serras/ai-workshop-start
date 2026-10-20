@@ -11,6 +11,8 @@ export type Source = {
   warnings: string[];
   /** The file's bytes, or undefined if it is not there. */
   read(path: string): Promise<Uint8Array | undefined>;
+  /** On GitHub, the account that owns the repository, with its profile: asked for only when shown. */
+  owner?(): Promise<Organization>;
 };
 
 export type ScanResult = { repository: Repository; skills: Skill[]; warnings: string[] };

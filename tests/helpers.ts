@@ -12,16 +12,20 @@ export const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
 export const EXAMPLE_COMMIT = '5ab6270ab772d113e8ad52ebfcaa0109c522ae00';
 
 const raw = (repo: string, path: string) => `https://raw.githubusercontent.com/JetBrains/${repo}/${EXAMPLE_COMMIT}/${path}`;
-const repository = (name: string, branch = 'main') => ({ full_name: `JetBrains/${name}`, default_branch: branch });
+const repository = (name: string, branch = 'main', stars = 0) => ({ full_name: `JetBrains/${name}`, default_branch: branch, stargazers_count: stars });
+
+/** The JetBrains organization's avatar, as GitHub lists it. */
+export const AVATAR = 'https://avatars.githubusercontent.com/u/878437?v=4';
 
 /**
- * What GitHub answers for a small repository, JetBrains/example, with one skill; and for the
+ * What GitHub answers for a small repository, JetBrains/example, with one skill and 56234 stars; for
+ * its owner, the JetBrains organization, with an avatar and a homepage; and for the
  * JetBrains organization, through code search: example; tools, with two skills, one without front
  * matter, and a copy; docs, with a SKILL.md outside the skill roots, so no skill; blank, which code
  * search finds nothing in; forked, a fork, which code search leaves out, listed through its tree.
  */
 const EXAMPLE: Recording = {
-  'https://api.github.com/repos/JetBrains/example': { status: 200, body: { full_name: 'JetBrains/example', default_branch: 'main' } },
+  'https://api.github.com/repos/JetBrains/example': { status: 200, body: repository('example', 'main', 56234) },
   'https://api.github.com/repos/JetBrains/example/commits/main': { status: 200, body: { sha: EXAMPLE_COMMIT } },
   'https://api.github.com/search/code?q=filename:SKILL.md+repo:JetBrains/example&per_page=100&page=1': {
     status: 200,
@@ -31,10 +35,19 @@ const EXAMPLE: Recording = {
     status: 200,
     body: '---\nname: commits\ndescription: Write commit messages the way this repository does. Use for every commit.\n---\n# Commits\n',
   },
-  'https://api.github.com/users/JetBrains': { status: 200, body: { login: 'JetBrains', type: 'Organization' } },
+  'https://api.github.com/users/JetBrains': {
+    status: 200,
+    body: { login: 'JetBrains', type: 'Organization', avatar_url: AVATAR, blog: 'www.jetbrains.com' },
+  },
   'https://api.github.com/orgs/JetBrains/repos?type=all&per_page=100&page=1': {
     status: 200,
-    body: [repository('tools'), repository('example'), repository('docs', 'trunk'), repository('blank'), { ...repository('forked'), fork: true }],
+    body: [
+      repository('tools', 'main', 999),
+      repository('example', 'main', 56234),
+      repository('docs', 'trunk', 12),
+      repository('blank'),
+      { ...repository('forked', 'main', 1250000), fork: true },
+    ],
   },
   'https://api.github.com/search/code?q=filename:SKILL.md+org:JetBrains&per_page=100&page=1': {
     status: 200,

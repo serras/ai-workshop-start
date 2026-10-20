@@ -8,6 +8,8 @@ export type Repository = {
   url: string;
   /** The scanned commit; empty for a local directory. */
   commit: string;
+  /** How many stars it has on GitHub; not there for a local directory. */
+  stars?: number;
 };
 
 /** A GitHub organization, or a user's account: every repository it owns. */
@@ -16,6 +18,10 @@ export type Organization = {
   id: string;
   /** `https://github.com/<owner>`. */
   url: string;
+  /** Its avatar, an `https:` address; not there when GitHub has none. */
+  avatar?: string;
+  /** The homepage its GitHub profile lists, a web address; not there when it lists none. */
+  homepage?: string;
 };
 
 /** One skill. Its link is derived, by `skillLink`. */
