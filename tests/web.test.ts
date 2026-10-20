@@ -52,6 +52,10 @@ test('the page: a text field for the repository at the top, the skills on the le
   const page = await response.text();
   assert.match(page, /<header>[\s\S]*<form id="scan"[\s\S]*<input id="repo"[\s\S]*<\/header>/);
   assert.match(page, /<main id="results" hidden>\s*<nav id="skills"[\s\S]*<article id="skill"/);
+  // Above the skills, the filter: a field applied as it is typed, with no button of its own.
+  assert.match(page, /<nav id="skills"[\s\S]*<input id="filter" type="search"[\s\S]*<ul id="list">[\s\S]*<\/nav>/);
+  assert.doesNotMatch(/<nav id="skills"[\s\S]*<\/nav>/.exec(page)![0], /<button/);
+  assert.match(await (await fetch(`${web.url}/app.js`)).text(), /filter\.addEventListener\('input'/);
   for (const asset of ['/app.js', '/style.css']) assert.equal((await fetch(`${web.url}${asset}`)).status, 200, asset);
   assert.equal((await fetch(`${web.url}/no-such-page`)).status, 404);
 });
