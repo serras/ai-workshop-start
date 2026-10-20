@@ -140,7 +140,7 @@ function profile(account: Account): Organization {
   if (account.avatar_url?.startsWith('https://')) organization.avatar = account.avatar_url;
   const blog = account.blog?.trim();
   if (blog) {
-    const homepage = webAddress(/^[a-z][a-z\d+.-]*:/i.test(blog) ? blog : `https://${blog}`);
+    const homepage = webAddress(/^[a-z][a-z\d+.-]*:(?!\d)/i.test(blog) ? blog : `https://${blog}`);
     if (homepage) organization.homepage = homepage;
   }
   return organization;
