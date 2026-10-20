@@ -30,3 +30,10 @@ jobs:
         run: |
           ./skill-atlas help
           ./skill-atlas scan ./fixture
+      # The web view, on its default port: the page, and the fixture scanned through it.
+      - name: Smoke test, web view
+        run: |
+          ./skill-atlas serve &
+          for i in $(seq 20); do curl -fsS http://localhost:3000/ > /dev/null && break; sleep 0.5; done
+          curl -fsS 'http://localhost:3000/api/scan?repo=./fixture' | grep -q '"name":"commits"'
+          kill %1
