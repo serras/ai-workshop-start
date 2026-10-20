@@ -1,5 +1,5 @@
 import { findSkills, type SkillFile } from './find.ts';
-import { sortSkills, type Repository, type Skill } from './model.ts';
+import { sortRepositories, sortSkills, type Organization, type Repository, type Skill } from './model.ts';
 import { parseSkill } from './parse.ts';
 
 /** A repository to scan: its files, and how to read them. */
@@ -15,6 +15,25 @@ export type Source = {
 
 export type ScanResult = { repository: Repository; skills: Skill[]; warnings: string[] };
 
+/** An organization to scan: each of its repositories, listed already. */
+export type OrganizationSource = {
+  organization: Organization;
+  repositories: Source[];
+  /** What listing the repositories had to leave out. */
+  warnings: string[];
+};
+
+export type OrganizationResult = {
+  organization: Organization;
+  /** Every repository, sorted by id; the ones without skills too. */
+  repositories: ScanResult[];
+  /** The organization's, then each repository's, after its id. */
+  warnings: string[];
+};
+
+/** How many repositories are read at the same time: on GitHub, each file is a request. */
+const REPOSITORIES_AT_ONCE = 8;
+
 /** fetch → find → parse. Nothing is stored: the result is all there is. */
 export async function scan(source: Source): Promise<ScanResult> {
   const files = findSkills(source.paths);
@@ -25,6 +44,38 @@ export async function scan(source: Source): Promise<ScanResult> {
     skills: sortSkills(results.flatMap((result) => (result.skill ? [result.skill] : []))),
     warnings: [...source.warnings, ...results.flatMap((result) => (result.warning ? [result.warning] : []))],
   };
+}
+
+/** Every repository of the organization, scanned as one would be on its own. */
+export async function scanOrganization(source: OrganizationSource): Promise<OrganizationResult> {
+  const results = await eachLimited(source.repositories, REPOSITORIES_AT_ONCE, scan);
+  return {
+    organization: source.organization,
+    repositories: sortRepositories(results),
+    warnings: [
+      ...source.warnings,
+      ...results.flatMap((result) => result.warnings.map((warning) => `${result.repository.id}: ${warning}`)),
+    ],
+  };
+}
+
+/** Whether what was opened is an organization rather than a single repository. */
+export function isOrganization(source: Source | OrganizationSource): source is OrganizationSource {
+  return 'organization' in source;
+}
+
+/** `fn` on every item, at most `limit` at a time; the results in the items' order. */
+export async function eachLimited<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 async function readSkill(source: Source, file: SkillFile): Promise<{ skill?: Skill; warning?: string }> {

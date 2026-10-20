@@ -10,6 +10,14 @@ export type Repository = {
   commit: string;
 };
 
+/** A GitHub organization, or a user's account: every repository it owns. */
+export type Organization = {
+  /** Its login, for example `JetBrains`. */
+  id: string;
+  /** `https://github.com/<owner>`. */
+  url: string;
+};
+
 /** One skill. Its link is derived, by `skillLink`. */
 export type Skill = {
   /** `repo:path`, for example `JetBrains/kotlin:.claude/skills/x/SKILL.md`. */
@@ -46,4 +54,12 @@ export function filesLink(repository: Repository): string {
 export function sortSkills(skills: Skill[]): Skill[] {
   const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   return [...skills].sort((a, b) => compare(a.name, b.name) || compare(a.path, b.path));
+}
+
+/** By id ignoring case, then as is: `android` and `MPS` side by side, whatever the locale. */
+export function sortRepositories<T extends { repository: Repository }>(results: T[]): T[] {
+  const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...results].sort(
+    (a, b) => compare(a.repository.id.toLowerCase(), b.repository.id.toLowerCase()) || compare(a.repository.id, b.repository.id),
+  );
 }
