@@ -38,7 +38,7 @@ export function parseSkill(text: string): ParsedSkill {
 /** The first sentence of a description; a `.` in a code span does not end one. */
 export function firstSentence(text: string): string {
   const line = text.replace(/\s+/g, ' ').trim();
-  return /^(?:`[^`]*`|[^`])*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line;
+  return /^(?:`[^`]*`|[^`]|`)*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line;
 }
 
 function fallback(reason: string, body: string): ParsedSkill {
