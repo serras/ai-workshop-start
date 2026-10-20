@@ -2,6 +2,7 @@
 // terminal: everything that differs between them comes in through the context.
 import { AtlasError } from './core/errors.ts';
 import { skillLink, type Repository, type Skill } from './core/model.ts';
+import { firstSentence } from './core/parse.ts';
 import { scan, type Source } from './core/scan.ts';
 
 export type Context = {
@@ -70,9 +71,4 @@ function printRepository(repository: Repository, skills: Skill[], { print }: Con
     print(`  ${skillLink(repository, skill)}`);
     if (skill.copies.length > 0) print(`  also in ${skill.copies.join(', ')}`);
   }
-}
-
-function firstSentence(text: string): string {
-  const line = text.replace(/\s+/g, ' ').trim();
-  return /^.*?[.!?](?=\s|$)/.exec(line)?.[0] ?? line;
 }

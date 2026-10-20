@@ -206,3 +206,13 @@ test('skills used as resources, shipped with the product or by tests, are not pr
     ].join('\n'),
   );
 });
+
+test('the first sentence: a `.` in a code span does not end it', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.claude/skills/tests'), { recursive: true });
+  writeFileSync(join(root, '.claude/skills/tests/SKILL.md'), '---\nname: tests\ndescription: Run `npm. test` first. Then push.\n---\n');
+  const { code, stdout } = await atlas(['scan', root]);
+  assert.equal(code, 0);
+  assert.equal(stdout.split('\n')[1], 'tests — Run `npm. test` first.');
+});

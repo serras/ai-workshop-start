@@ -83,12 +83,17 @@ function select(skill) {
   const heading = document.createElement('header');
   const title = document.createElement('h2');
   title.textContent = skill.name;
-  const link = document.createElement('a');
-  link.href = skill.link;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  link.textContent = skill.path;
-  heading.append(title, link);
+  // A page on http://localhost cannot open a local directory's file: links: the path is only text.
+  const web = /^https?:/.test(skill.link);
+  const path = document.createElement(web ? 'a' : 'span');
+  if (web) {
+    path.href = skill.link;
+    path.target = '_blank';
+    path.rel = 'noopener noreferrer';
+  }
+  path.className = 'path';
+  path.textContent = skill.path;
+  heading.append(title, path);
   if (skill.copies.length) {
     const copies = document.createElement('p');
     copies.className = 'copies';

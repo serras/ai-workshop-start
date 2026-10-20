@@ -94,7 +94,7 @@ main[hidden] { display: none; }
 
 #skill { overflow-y: auto; padding: 1rem 2rem 2rem; }
 #skill > header h2 { margin: 0; }
-#skill > header a, .copies { font-size: 0.85rem; color: var(--muted); }
+#skill > header .path, .copies { font-size: 0.85rem; color: var(--muted); }
 .copies { margin: 0.25rem 0 0; }
 .placeholder { color: var(--muted); }
 .warning { color: #c27c0e; }

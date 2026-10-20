@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 import { run } from '../src/commands.ts';
+import { renderSkill } from '../src/render.ts';
 import { startWeb, type ScanAnswer } from '../src/web.ts';
 import { CLI, EXAMPLE_COMMIT, FIXTURE, open } from './helpers.ts';
 
@@ -102,7 +103,7 @@ test('unreachable repository → its message, for the page to show', async () =>
   assert.deepEqual(await scanned(' '), { status: 400, body: { error: 'Type a GitHub URL or a directory' } });
 });
 
-test('nothing in a SKILL.md runs: raw HTML is text, only web links are kept, relative ones point into the repository', async (t) => {
+test('nothing in a SKILL.md runs: raw HTML is text, only web links are kept; a local file\'s links are only their text', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.claude/skills/tricky'), { recursive: true });
@@ -120,7 +121,7 @@ test('nothing in a SKILL.md runs: raw HTML is text, only web links are kept, rel
     ].join('\n'),
   );
   const { body } = await scanned(root);
-  const base = pathToFileURL(root).href;
+  assert.equal(body.skills[0].link, `${pathToFileURL(root).href}/.claude/skills/tricky/SKILL.md`);
   assert.equal(
     body.skills[0].html,
     '<table class="front-matter"><tbody><tr><th>name</th><td>tricky</td></tr>' +
@@ -129,11 +130,35 @@ test('nothing in a SKILL.md runs: raw HTML is text, only web links are kept, rel
       '&#60;script&#62;alert(1)&#60;/script&#62;' +
       '<p>run ' +
       '<a href="https://example.com/docs" target="_blank" rel="noopener noreferrer">docs</a> ' +
-      `<a href="${base}/.claude/skills/tricky/reference.md" target="_blank" rel="noopener noreferrer">sibling</a> ` +
+      // A page on http://localhost cannot open file: links.
+      'sibling ' +
       '<img src="https://example.com/logo.png" alt="logo"></p>\n',
   );
   const policy = (await fetch(`${web.url}/`)).headers.get('content-security-policy')!;
   assert.match(policy, /script-src 'self'/);
+});
+
+test('links in a GitHub repository: relative ones against the file, /… against the repository; images over https only', () => {
+  const root = `https://github.com/JetBrains/example/blob/${EXAMPLE_COMMIT}/`;
+  const place = { link: `${root}.claude/skills/commits/SKILL.md`, root };
+  const html = renderSkill(
+    '---\nname: commits\n---\n' +
+      '[sibling](reference.md) [docs](/docs/guide.md) [other](//example.com/x) ' +
+      '![diagram](diagram.png) ![logo](/logo.png) ![plain](http://example.com/plain.png)',
+    place,
+  );
+  const link = (href: string, text: string) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+  assert.equal(
+    html,
+    '<table class="front-matter"><tbody><tr><th>name</th><td>commits</td></tr></tbody></table>\n<p>' +
+      `${link(`${root}.claude/skills/commits/reference.md`, 'sibling')} ` +
+      `${link(`${root}docs/guide.md`, 'docs')} ` +
+      `${link('https://example.com/x', 'other')} ` +
+      `<img src="${root}.claude/skills/commits/diagram.png?raw=true" alt="diagram"> ` +
+      `<img src="${root}logo.png?raw=true" alt="logo"> ` +
+      // The page's policy loads https: images only: an http: one is its text, not a broken image.
+      'plain</p>\n',
+  );
 });
 
 test('the description is Markdown, in the list of skills and in the front matter table', async (t) => {

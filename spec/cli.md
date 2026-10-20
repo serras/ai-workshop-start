@@ -9,5 +9,5 @@ JetBrains/kotlin · 6 skills
 build-tools-bump-gradle-api — Bumps the Gradle API…
   https://github.com/JetBrains/kotlin/blob/<commit>/…
 ```
-- Sorted by **name**; the description's *first sentence*
+- Sorted by **name**; the description's *first sentence*: a `.` in a code span does not end it
 - `also in <paths>` for copies; warnings go to *stderr*

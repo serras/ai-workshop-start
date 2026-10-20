@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { AtlasError } from './core/errors.ts';
-import { skillLink } from './core/model.ts';
+import { filesLink, skillLink } from './core/model.ts';
 import { scan, type Source } from './core/scan.ts';
 import { renderSkill, renderSummary } from './render.ts';
 
@@ -89,6 +89,7 @@ export type ScanAnswer = Awaited<ReturnType<typeof scanJson>>;
 /** What the page shows: the repository, its skills with their HTML and their summaries, and the warnings. */
 async function scanJson(repo: string, options: WebOptions) {
   const { repository, skills, warnings } = await scan(await options.open(repo));
+  const root = filesLink(repository);
   return {
     repository,
     skills: skills.map((skill) => {
@@ -97,11 +98,11 @@ async function scanJson(repo: string, options: WebOptions) {
         id: skill.id,
         name: skill.name,
         description: skill.description,
-        summary: renderSummary(skill.description, link),
+        summary: renderSummary(skill.description, { link, root }),
         path: skill.path,
         copies: skill.copies,
         link,
-        html: renderSkill(skill.text, link),
+        html: renderSkill(skill.text, { link, root }),
       };
     }),
     warnings,

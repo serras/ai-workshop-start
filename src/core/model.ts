@@ -31,8 +31,15 @@ export type Skill = {
  * `https://github.com/<owner>/<repo>/blob/<commit>/<path>`; in a local directory, the file itself.
  */
 export function skillLink(repository: Repository, skill: Skill): string {
-  const path = skill.path.split('/').map(encodeURIComponent).join('/');
-  return skill.commit ? `${repository.url}/blob/${skill.commit}/${path}` : `${repository.url}/${path}`;
+  return `${filesLink(repository)}${skill.path.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+/**
+ * Where the repository's files are, ending in `/`: on GitHub at the scanned commit,
+ * `https://github.com/<owner>/<repo>/blob/<commit>/`; in a local directory, the directory itself.
+ */
+export function filesLink(repository: Repository): string {
+  return repository.commit ? `${repository.url}/blob/${repository.commit}/` : `${repository.url}/`;
 }
 
 /** By name, then by path: the same order everywhere, whatever the locale. */
