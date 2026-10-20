@@ -20,6 +20,7 @@ Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text
 - With `GITHUB_TOKEN`: **one code search** for the whole owner; only the repositories it finds are scanned; over the 1000 results it answers → a warning that some skills may be missing. Code search leaves *forks* out: each fork's tree
 - Without it: each repository's tree, a few at a time
 - Empty and disabled repositories: nothing to scan, *skipped*; an empty repository scanned on its own → a clear message, exit code 1
+- A repository that cannot be read (blocked, deleted since listed, …) → a warning, `<owner>/<repo>: <message>; skipped`, and the others still scanned; a rate limit, a rejected token or no network stops the scan
 - Unknown organization → a clear message, exit code 1
 ### What is a project skill?
 - Only folders usually containing skills (`agents/skills`, `agent/skills`, `.claude/skills`, and similar roots for other tools) should be considered

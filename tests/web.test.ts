@@ -285,6 +285,15 @@ test('the page: the selected skill stays on the right when the filter leaves it 
   assert.equal(view.$('#skill h2').textContent, 'commits');
 });
 
+test('the page: an older address, &skill=<path>, still selects the skill of a single repository, not of an organization', async (t) => {
+  const old = await page(t, `?repo=${encodeURIComponent(FIXTURE)}&skill=${encodeURIComponent('.claude/skills/commits/SKILL.md')}`);
+  await scannedIn(old, 'fixture');
+  assert.equal(old.$('#skill h2').textContent, 'commits');
+  const organization = await page(t, `?repo=${encodeURIComponent('github.com/JetBrains')}&skill=${encodeURIComponent('.agents/skills/release/SKILL.md')}`);
+  await scannedIn(organization, 'JetBrains', 'JetBrains · 4 skills in 3 repositories');
+  assert.equal(organization.$('#skill h2'), null);
+});
+
 test('the page: &filter=… in the address, kept as it is typed and applied again on a reload', async (t) => {
   const repo = `?repo=${encodeURIComponent(FIXTURE)}`;
   const first = await page(t, repo);

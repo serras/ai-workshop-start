@@ -58,7 +58,8 @@ async function scan(repo, selected, typed = '') {
     applyFilter();
     scanned.hidden = false;
     remember({ repo, skill: null, filter: typed });
-    select(skills.find((skill) => skill.id === selected));
+    // An address saved before skills had ids holds the path: enough for a single repository.
+    select(skills.find((skill) => skill.id === selected) ?? (organization ? undefined : skills.find((skill) => skill.path === selected)));
   } catch (error) {
     if (request === current) show(`Cannot scan ${repo}: ${error.message}`, true);
   } finally {

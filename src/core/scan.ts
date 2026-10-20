@@ -32,7 +32,7 @@ export type OrganizationResult = {
 };
 
 /** How many repositories are read at the same time: on GitHub, each file is a request. */
-const REPOSITORIES_AT_ONCE = 8;
+export const REPOSITORIES_AT_ONCE = 8;
 
 /** fetch → find → parse. Nothing is stored: the result is all there is. */
 export async function scan(source: Source): Promise<ScanResult> {

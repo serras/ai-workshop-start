@@ -1,6 +1,6 @@
 import { AtlasError } from './errors.ts';
 import { SKILL_ROOTS } from './find.ts';
-import { eachLimited, type OrganizationSource, type Source } from './scan.ts';
+import { eachLimited, REPOSITORIES_AT_ONCE, type OrganizationSource, type Source } from './scan.ts';
 
 /** The part of `fetch` the core uses, so tests and the browser can pass their own. */
 export type Fetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<Response>;
@@ -54,9 +54,6 @@ export async function openGitHub(input: string, options: GitHubOptions): Promise
   );
 }
 
-/** How many repositories of an organization are opened at the same time. */
-const REPOSITORIES_AT_ONCE = 8;
-
 /**
  * Every repository of the organization, or of the user, at its default branch. With a token, one
  * code search finds the skills of all of them, and only the repositories it finds are opened, but
@@ -83,16 +80,23 @@ export async function openGitHubOrganization(input: string, options: GitHubOptio
   const repositories = listed.filter((repo) => !searched(repo) || found!.has(repo.full_name));
   const list = (repo: Listed) => async (id: string, sha: string, repositoryWarnings: string[]) =>
     searched(repo) ? found!.get(id)! : treePaths(github, id, sha, repositoryWarnings, found ? '' : ' (GITHUB_TOKEN searches everywhere)');
+  const skipped: string[] = [];
   const sources = await eachLimited(repositories, REPOSITORIES_AT_ONCE, (repo) =>
     openRepository(github, repo, undefined, list(repo)).catch((error) => {
       if (error instanceof EmptyRepository) return undefined;
+      // One unreadable repository should not lose the others; a rate limit, a bad token or no network stops the scan.
+      if (error instanceof AtlasError && !/rate limit|GITHUB_TOKEN|Cannot reach GitHub/.test(error.message)) {
+        skipped.push(`${repo.full_name}: ${error.message}; skipped`);
+        return undefined;
+      }
       throw error;
     }),
   );
   return {
     organization: { id: login, url: `https://github.com/${login}` },
     repositories: sources.filter((source) => source !== undefined),
-    warnings,
+    // Repositories are opened a few at a time: their warnings, in a stable order.
+    warnings: [...warnings, ...skipped.sort()],
   };
 }
 

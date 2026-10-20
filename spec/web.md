@@ -14,7 +14,7 @@
 - On the right, the **selected skill's `SKILL.md`**, rendered: its front matter as a table, then its Markdown; its path, linked as in `scan` for a GitHub repository, after its repository for an organization, and its copies
 - The description is *Markdown*: rendered in the list and in the table; in the list, a link is only its text
 - A failed scan → its message, in place of the skills, under the filter
-- `?repo=…&skill=…` in the address, the skill by its id, `repo:path`: the scan and the selection survive a reload; `&filter=…`, the filter
+- `?repo=…&skill=…` in the address, the skill by its id, `repo:path`; for a single repository, a bare path, as in older addresses, selects it too: the scan and the selection survive a reload; `&filter=…`, the filter
 - `GITHUB_TOKEN`, as for `scan`; *nothing is stored*
 ## Safety
 - Listens on *this machine only*, and answers only for `localhost`: it reads local directories

@@ -84,6 +84,34 @@ test('an organization, without a token: each repository through its tree; empty 
   assert.deepEqual(result.warnings, []);
 });
 
+test('an unreadable repository of an organization → a warning, the others still scanned; a rate limit stops the scan', async () => {
+  const listing = (names: string[]) => ({
+    status: 200,
+    body: names.map((name) => ({ full_name: `acme/${name}`, default_branch: 'main' })),
+  });
+  const fetch = replay({
+    ...ACME,
+    'https://api.github.com/orgs/acme/repos?type=all&per_page=100&page=1': listing(['api', 'gone', 'blocked']),
+    'https://api.github.com/repos/acme/gone/commits/main': { status: 404, body: { message: 'Not Found' } },
+    'https://api.github.com/repos/acme/blocked/commits/main': { status: 451, body: { message: 'Repository access blocked' } },
+  });
+  const result = await scanOrganization(await openGitHubOrganization('github.com/acme', { fetch }));
+  assert.deepEqual(
+    result.repositories.map(({ repository, skills }) => [repository.id, skills.map((skill) => skill.name)]),
+    [['acme/api', ['deploy']]],
+  );
+  assert.equal(result.warnings.length, 2);
+  assert.match(result.warnings[0], /^acme\/blocked: GitHub answered 451 for .*; skipped$/);
+  assert.equal(result.warnings[1], 'acme/gone: Not found in https://github.com/acme/gone: main; skipped');
+
+  const limited = replay({
+    ...ACME,
+    'https://api.github.com/orgs/acme/repos?type=all&per_page=100&page=1': listing(['api', 'limited']),
+    'https://api.github.com/repos/acme/limited/commits/main': { status: 403, body: { message: 'API rate limit exceeded' } },
+  });
+  await assert.rejects(openGitHubOrganization('github.com/acme', { fetch: limited }), { message: 'GitHub rate limit reached; set GITHUB_TOKEN' });
+});
+
 test('a user\'s account is an organization too: every repository it owns, page after page', async () => {
   const many = Array.from({ length: 100 }, (_, i) => ({ full_name: `serras/old-${i}`, default_branch: 'main', disabled: true }));
   const fetch = replay({
