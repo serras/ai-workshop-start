@@ -38,6 +38,33 @@ test('scan prints the repository, then each skill with its first sentence and pi
   );
 });
 
+test('a /tree/<commit> URL scans that commit, through its tree even with a token', async () => {
+  const pinned = '0123456789abcdef0123456789abcdef01234567';
+  const github = replay({
+    'https://api.github.com/repos/JetBrains/example': { status: 200, body: { full_name: 'JetBrains/example', default_branch: 'main' } },
+    [`https://api.github.com/repos/JetBrains/example/commits/${pinned}`]: { status: 200, body: { sha: pinned } },
+    [`https://api.github.com/repos/JetBrains/example/git/trees/${pinned}?recursive=1`]: {
+      status: 200,
+      body: { truncated: false, tree: [{ path: '.claude/skills/commits/SKILL.md', mode: '100644', type: 'blob', sha: 'a' }] },
+    },
+    [`https://raw.githubusercontent.com/JetBrains/example/${pinned}/.claude/skills/commits/SKILL.md`]: {
+      status: 200,
+      body: '---\nname: commits\ndescription: Pinned.\n---\n',
+    },
+  });
+  const source = await openGitHub(`https://github.com/JetBrains/example/tree/${pinned}/`, { fetch: github, token: 'test' });
+  assert.equal(source.repository.commit, pinned);
+  assert.deepEqual(source.paths, ['.claude/skills/commits/SKILL.md']);
+
+  const missing = replay({
+    'https://api.github.com/repos/JetBrains/example': { status: 200, body: { full_name: 'JetBrains/example', default_branch: 'main' } },
+    'https://api.github.com/repos/JetBrains/example/commits/no-such-ref': { status: 404, body: { message: 'Not Found' } },
+  });
+  await assert.rejects(openGitHub('github.com/JetBrains/example/tree/no-such-ref', { fetch: missing }), {
+    message: 'Not found in https://github.com/JetBrains/example: no-such-ref',
+  });
+});
+
 test('./fixture: every skill, sorted by name, linked to its file, with a warning for the malformed one', () => {
   const root = pathToFileURL(FIXTURE).href;
   assert.equal(fixture.code, 0);

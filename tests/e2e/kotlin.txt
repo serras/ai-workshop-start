@@ -1,0 +1,15 @@
+JetBrains/kotlin · 7 skills
+analysis-api-create-cherry-pick-issue — Create a KTIJ cherry-pick tracking issue for a KT fix that needs to be cherry-picked to an IntelliJ branch.
+  https://github.com/JetBrains/kotlin/blob/691451952b49c77db35c038e3f8a8da88186f0d2/.claude/skills/analysis-api-create-cherry-pick-issue/SKILL.md
+analysis-api-mark-internal-apis — Drive the per-module internal-API codebase test, then refine the suggested annotations down to `internal` (or up to `@KaImplementationDetail`) based on actual external usage
+  https://github.com/JetBrains/kotlin/blob/691451952b49c77db35c038e3f8a8da88186f0d2/.claude/skills/analysis-api-mark-internal-apis/SKILL.md
+build-bump-gradle-version — Bumps the Gradle wrapper/distribution version that BUILDS the Kotlin project itself — the version behind `./gradlew`, defined by `gradle/wrapper/gradle-wrapper.properties`.
+  https://github.com/JetBrains/kotlin/blob/691451952b49c77db35c038e3f8a8da88186f0d2/.claude/skills/build-bump-gradle-version/SKILL.md
+build-tools-add-test-federation-annotations-to-integration-tests — Annotate test classes in `kotlin-gradle-plugin-integration-tests` with Test Federation annotations (`@MustRunOnChangesInXYZ` / `@MustRunAlways`).
+  https://github.com/JetBrains/kotlin/blob/691451952b49c77db35c038e3f8a8da88186f0d2/.claude/skills/build-tools-add-test-federation-annotations-to-integration-tests/SKILL.md
+build-tools-bump-gradle-api — Bumps the Gradle API version that Kotlin Gradle plugins are compiled against in the Kotlin compiler repository.
+  https://github.com/JetBrains/kotlin/blob/691451952b49c77db35c038e3f8a8da88186f0d2/.claude/skills/build-tools-bump-gradle-api/SKILL.md
+build-tools-bump-gradle-in-tests — Bump the maximum supported Gradle version in the `kotlin-gradle-plugin-integration-tests` project.
+  https://github.com/JetBrains/kotlin/blob/691451952b49c77db35c038e3f8a8da88186f0d2/.claude/skills/build-tools-bump-gradle-in-tests/SKILL.md
+minimize-repro-for-diagnostic-test — Makes a minimal reproduction of a Frontend-related bug as a diagnostic test
+  https://github.com/JetBrains/kotlin/blob/691451952b49c77db35c038e3f8a8da88186f0d2/.claude/skills/minimize-repro-for-diagnostic-test/SKILL.md
