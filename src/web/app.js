@@ -1,12 +1,15 @@
 // The web view: scans what is typed at the top, a repository or an organization, lists the skills
 // on the left, by repository, and shows the selected SKILL.md on the right. `?repo=…&skill=…` keeps
-// both across a reload, `&filter=…` the filter at the top of the list, applied as it is typed.
+// both across a reload, `&filter=…` the filter at the top of the list, applied as it is typed. On
+// GitHub, the owner's avatar and homepage above the skills, and each repository's stars.
 import { count, matches, noMatch } from './filter.js';
+import { stars } from './stars.js';
 
 const form = document.querySelector('#scan');
 const input = document.querySelector('#repo');
 const status = document.querySelector('#status');
 const scanned = document.querySelector('#scanned');
+const owner = document.querySelector('#owner');
 const summary = document.querySelector('#summary');
 const filter = document.querySelector('#filter');
 const noMatchMessage = document.querySelector('#no-match');
@@ -49,6 +52,7 @@ async function scan(repo, selected, typed = '') {
     status.hidden = true;
     organization = Boolean(body.organization);
     skills = body.repositories.flatMap((result) => result.skills);
+    showOwner(body.owner);
     list.replaceChildren(...body.repositories.map(group));
     summary.textContent = organization
       ? `${body.id} · ${count(skills.length)}${skills.length ? ` in ${count(body.repositories.length, 'repository', 'repositories')}` : ''}`
@@ -66,15 +70,49 @@ async function scan(repo, selected, typed = '') {
   }
 }
 
-/** One repository's skills: its id and how many of them the filter leaves, then the skills. */
+/**
+ * The organization scanned, or the one owning the repository: its avatar, its login linked to its
+ * GitHub page, and its homepage; nothing for a local directory.
+ */
+function showOwner(account) {
+  owner.hidden = !account;
+  if (!account) return;
+  const avatar = owner.querySelector('img');
+  avatar.hidden = !account.avatar;
+  if (account.avatar) avatar.src = account.avatar;
+  else avatar.removeAttribute('src');
+  const login = owner.querySelector('.login');
+  login.href = account.url;
+  login.textContent = account.id;
+  const homepage = owner.querySelector('.homepage');
+  homepage.hidden = !account.homepage;
+  if (account.homepage) {
+    homepage.href = account.homepage;
+    // As GitHub shows it: without the scheme and the trailing slash.
+    homepage.textContent = account.homepage.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  } else {
+    homepage.removeAttribute('href');
+    homepage.textContent = '';
+  }
+}
+
+/** One repository's skills: its id and how many of them the filter leaves, its stars, then the skills. */
 function group({ repository, skills }) {
   const section = document.createElement('section');
   section.className = 'repository';
   section.dataset.id = repository.id;
-  const heading = document.createElement('h3');
+  const header = document.createElement('header');
+  header.append(document.createElement('h3'));
+  if (typeof repository.stars === 'number') {
+    const badge = document.createElement('span');
+    badge.className = 'stars';
+    badge.textContent = `★ ${stars(repository.stars)}`;
+    badge.title = `${repository.stars.toLocaleString('en-US')} ${repository.stars === 1 ? 'star' : 'stars'}`;
+    header.append(badge);
+  }
   const ul = document.createElement('ul');
   ul.append(...skills.map(item));
-  section.append(heading, ul);
+  section.append(header, ul);
   return section;
 }
 
