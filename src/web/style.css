@@ -72,6 +72,21 @@ main[hidden] { display: none; }
 
 #skills ul { list-style: none; margin: 0; padding: 0; }
 
+#filter {
+  display: block;
+  width: calc(100% - 1rem);
+  margin: 0 0.5rem 0.5rem;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
+
+#no-match { margin: 0.25rem 0.5rem; font-size: 0.9rem; }
+
 #list button {
   display: block;
   width: 100%;

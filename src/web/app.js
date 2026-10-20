@@ -1,10 +1,15 @@
 // The web view: scans what is typed at the top, lists the skills on the left and shows the
-// selected SKILL.md on the right. `?repo=…&skill=…` keeps both across a reload.
+// selected SKILL.md on the right. `?repo=…&skill=…` keeps both across a reload, `&filter=…` the
+// filter above the list, applied as it is typed.
+import { matches, noMatch } from './filter.js';
+
 const form = document.querySelector('#scan');
 const input = document.querySelector('#repo');
 const status = document.querySelector('#status');
 const results = document.querySelector('#results');
 const summary = document.querySelector('#summary');
+const filter = document.querySelector('#filter');
+const noMatchMessage = document.querySelector('#no-match');
 const list = document.querySelector('#list');
 const warnings = document.querySelector('#warnings');
 const article = document.querySelector('#skill');
@@ -18,13 +23,18 @@ form.addEventListener('submit', (event) => {
   scan(input.value.trim());
 });
 
+filter.addEventListener('input', () => {
+  applyFilter();
+  remember({ filter: filter.value });
+});
+
 const params = new URLSearchParams(location.search);
 if (params.get('repo')) {
   input.value = params.get('repo');
-  scan(params.get('repo'), params.get('skill'));
+  scan(params.get('repo'), params.get('skill'), params.get('filter') ?? '');
 }
 
-async function scan(repo, selected) {
+async function scan(repo, selected, typed = '') {
   if (!repo) return;
   const request = ++current;
   show(`Scanning ${repo}…`);
@@ -39,8 +49,10 @@ async function scan(repo, selected) {
     list.replaceChildren(...skills.map(item));
     summary.textContent = `${body.repository.id} · ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`;
     showWarnings(body.warnings);
+    filter.value = typed;
+    applyFilter();
     results.hidden = false;
-    remember({ repo, skill: null });
+    remember({ repo, skill: null, filter: typed });
     select(skills.find((skill) => skill.path === selected));
   } catch (error) {
     if (request === current) show(`Cannot scan ${repo}: ${error.message}`, true);
@@ -54,6 +66,7 @@ function item(skill) {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.path = skill.path;
+  button.dataset.name = skill.name;
   const name = document.createElement('strong');
   name.textContent = skill.name;
   button.append(name);
@@ -66,6 +79,14 @@ function item(skill) {
   const li = document.createElement('li');
   li.append(button);
   return li;
+}
+
+/** Lists only the skills whose name matches the filter; the selected one stays on the right. */
+function applyFilter() {
+  for (const li of list.children) li.hidden = !matches(li.firstChild.dataset.name, filter.value);
+  const message = noMatch(skills.map((skill) => skill.name), filter.value);
+  noMatchMessage.textContent = message ?? '';
+  noMatchMessage.hidden = !message;
 }
 
 function select(skill) {
@@ -130,7 +151,7 @@ function show(text, error = false) {
 function remember(changes) {
   const url = new URL(location.href);
   for (const [key, value] of Object.entries(changes)) {
-    if (value) url.searchParams.set(key, value);
+    if (value?.trim()) url.searchParams.set(key, value);
     else url.searchParams.delete(key);
   }
   history.replaceState(null, '', url);
