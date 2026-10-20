@@ -30,7 +30,7 @@ async function scanned(repo: string) {
 async function page(t: TestContext, search: string) {
   const dom = new JSDOM(await (await fetch(`${web.url}/`)).text(), { url: `${web.url}/${search}` });
   const { document, location, history } = dom.window;
-  const saved = { fetch: globalThis.fetch };
+  const saved = { fetch: realFetch };
   Object.assign(globalThis, {
     document,
     location,
@@ -54,6 +54,7 @@ async function page(t: TestContext, search: string) {
   return { $, listed, type, location, window: dom.window };
 }
 let pages = 0;
+const realFetch = globalThis.fetch;
 
 /** Waits for the page to show the answer to its scan. */
 async function scannedIn(view: Awaited<ReturnType<typeof page>>, repo: string) {
@@ -277,6 +278,10 @@ test('the page: &filter=… in the address, kept as it is typed and applied agai
   reloaded.type('  ');
   assert.equal(reloaded.listed().length, 3);
   assert.equal(new URL(reloaded.location.href).searchParams.has('filter'), false);
+});
+
+test('the page leaves nothing behind: after a test with two pages, fetch is the real one again', () => {
+  assert.equal(globalThis.fetch, realFetch);
 });
 
 test('the page: a new scan empties the filter', async (t) => {
