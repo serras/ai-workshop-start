@@ -1,5 +1,6 @@
 // The decisions in spec/web.md, checked on what the web view serves: for ./fixture, for the small
-// GitHub repository answered in tests/helpers.ts, and for temporary directories.
+// GitHub repository answered in tests/helpers.ts, and for temporary directories; the page itself,
+// app.js run in jsdom against the server.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
@@ -8,7 +9,8 @@ import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
+import { JSDOM } from 'jsdom';
 import { run } from '../src/commands.ts';
 import { renderSkill } from '../src/render.ts';
 import { startWeb, type ScanAnswer } from '../src/web.ts';
@@ -22,6 +24,43 @@ test.after(() => web.close());
 async function scanned(repo: string) {
   const response = await fetch(`${web.url}/api/scan?repo=${encodeURIComponent(repo)}`);
   return { status: response.status, body: (await response.json()) as ScanAnswer };
+}
+
+/** The page at `search`, with the real app.js running in it against this server; restored after the test. */
+async function page(t: TestContext, search: string) {
+  const dom = new JSDOM(await (await fetch(`${web.url}/`)).text(), { url: `${web.url}/${search}` });
+  const { document, location, history } = dom.window;
+  const saved = { fetch: globalThis.fetch };
+  Object.assign(globalThis, {
+    document,
+    location,
+    history,
+    fetch: (url: string, init?: RequestInit) => saved.fetch(new URL(url, location.href), init),
+  });
+  t.after(() => {
+    Object.assign(globalThis, saved);
+    for (const name of ['document', 'location', 'history']) delete (globalThis as Record<string, unknown>)[name];
+    dom.window.close();
+  });
+  // A fresh copy of the module for each page, as a reload runs it again.
+  await import(`../src/web/app.js?page=${++pages}`);
+  const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+  /** The names listed, the filtered-out ones left aside. */
+  const listed = () => [...document.querySelectorAll('#list li:not([hidden]) strong')].map((name) => name.textContent);
+  const type = (text: string) => {
+    $<HTMLInputElement>('#filter').value = text;
+    $('#filter').dispatchEvent(new dom.window.Event('input'));
+  };
+  return { $, listed, type, location, window: dom.window };
+}
+let pages = 0;
+
+/** Waits for the page to show the answer to its scan. */
+async function scannedIn(view: Awaited<ReturnType<typeof page>>, repo: string) {
+  for (let i = 0; i < 200 && (view.$('#results').hidden || view.$('#summary').textContent !== `${repo} · 3 skills`); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(view.$('#summary').textContent, `${repo} · 3 skills`);
 }
 
 test('serve listens on localhost:3000 by default, or on --port', async () => {
@@ -56,7 +95,7 @@ test('the page: a text field for the repository at the top, the skills on the le
   assert.match(page, /<nav id="skills"[\s\S]*<input id="filter" type="search"[\s\S]*<ul id="list">[\s\S]*<\/nav>/);
   assert.doesNotMatch(/<nav id="skills"[\s\S]*<\/nav>/.exec(page)![0], /<button/);
   assert.match(await (await fetch(`${web.url}/app.js`)).text(), /filter\.addEventListener\('input'/);
-  for (const asset of ['/app.js', '/style.css']) assert.equal((await fetch(`${web.url}${asset}`)).status, 200, asset);
+  for (const asset of ['/app.js', '/filter.js', '/style.css']) assert.equal((await fetch(`${web.url}${asset}`)).status, 200, asset);
   assert.equal((await fetch(`${web.url}/no-such-page`)).status, 404);
 });
 
@@ -193,7 +232,6 @@ test('the description is Markdown, in the list of skills and in the front matter
 });
 
 test('the filter: the skills whose name contains the typed text, ignoring case; every one when empty; a message for none', async () => {
-  assert.equal((await fetch(`${web.url}/filter.js`)).status, 200);
   const names = (await scanned(FIXTURE)).body.skills.map((skill) => skill.name);
   const shown = (typed: string) => names.filter((name) => matches(name, typed));
   assert.deepEqual(shown(''), ['code-style', 'commits', 'release-checklist']);
@@ -207,6 +245,51 @@ test('the filter: the skills whose name contains the typed text, ignoring case; 
   assert.equal(noMatch(names, 'co'), null);
   assert.equal(noMatch(names, ' kotlin '), 'No skill matches "kotlin".');
   assert.equal(noMatch([], 'x'), 'No skill matches "x".');
+});
+
+test('the page: the selected skill stays on the right when the filter leaves it out of the list', async (t) => {
+  const view = await page(t, `?repo=${encodeURIComponent(FIXTURE)}&skill=${encodeURIComponent('.claude/skills/commits/SKILL.md')}`);
+  await scannedIn(view, 'fixture');
+  assert.equal(view.$('#skill h2').textContent, 'commits');
+  view.type('style');
+  assert.deepEqual(view.listed(), ['code-style']);
+  assert.equal(view.$('#skill h2').textContent, 'commits');
+  assert.equal(view.$('#no-match').hidden, true);
+  // The count stays the scan's.
+  assert.equal(view.$('#summary').textContent, 'fixture · 3 skills');
+  view.type('kotlin');
+  assert.deepEqual(view.listed(), []);
+  assert.equal(view.$('#no-match').textContent, 'No skill matches "kotlin".');
+  assert.equal(view.$('#skill h2').textContent, 'commits');
+});
+
+test('the page: &filter=… in the address, kept as it is typed and applied again on a reload', async (t) => {
+  const repo = `?repo=${encodeURIComponent(FIXTURE)}`;
+  const first = await page(t, repo);
+  await scannedIn(first, 'fixture');
+  first.type('COM');
+  assert.equal(new URL(first.location.href).searchParams.get('filter'), 'COM');
+  const reloaded = await page(t, first.location.search);
+  await scannedIn(reloaded, 'fixture');
+  assert.equal(reloaded.$<HTMLInputElement>('#filter').value, 'COM');
+  assert.deepEqual(reloaded.listed(), ['commits']);
+  // Only spaces: every skill, and nothing in the address.
+  reloaded.type('  ');
+  assert.equal(reloaded.listed().length, 3);
+  assert.equal(new URL(reloaded.location.href).searchParams.has('filter'), false);
+});
+
+test('the page: a new scan empties the filter', async (t) => {
+  const view = await page(t, `?repo=${encodeURIComponent(FIXTURE)}&filter=com`);
+  await scannedIn(view, 'fixture');
+  assert.deepEqual(view.listed(), ['commits']);
+  view.$<HTMLInputElement>('#repo').value = FIXTURE;
+  view.$<HTMLFormElement>('#scan').requestSubmit();
+  // The same repository: wait for the filter to be emptied by its answer.
+  for (let i = 0; i < 200 && view.listed().length !== 3; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(view.$<HTMLInputElement>('#filter').value, '');
+  assert.equal(view.listed().length, 3);
+  assert.equal(new URL(view.location.href).searchParams.has('filter'), false);
 });
 
 test('only this machine is served: another host name is refused', async () => {
