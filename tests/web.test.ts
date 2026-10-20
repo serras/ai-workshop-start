@@ -12,6 +12,7 @@ import { test } from 'node:test';
 import { run } from '../src/commands.ts';
 import { renderSkill } from '../src/render.ts';
 import { startWeb, type ScanAnswer } from '../src/web.ts';
+import { matches, noMatch } from '../src/web/filter.js';
 import { CLI, EXAMPLE_COMMIT, FIXTURE, open } from './helpers.ts';
 
 const web = await startWeb({ open, port: 0 });
@@ -185,6 +186,23 @@ test('the description is Markdown, in the list of skills and in the front matter
       '<a href="https://example.com/docs" target="_blank" rel="noopener noreferrer">the docs</a>. ' +
       'Then &#60;i&#62;stop&#60;/i&#62;.</td></tr></tbody></table>\n',
   );
+});
+
+test('the filter: the skills whose name contains the typed text, ignoring case; every one when empty; a message for none', async () => {
+  assert.equal((await fetch(`${web.url}/filter.js`)).status, 200);
+  const names = (await scanned(FIXTURE)).body.skills.map((skill) => skill.name);
+  const shown = (typed: string) => names.filter((name) => matches(name, typed));
+  assert.deepEqual(shown(''), ['code-style', 'commits', 'release-checklist']);
+  assert.deepEqual(shown('   '), ['code-style', 'commits', 'release-checklist']);
+  assert.deepEqual(shown('co'), ['code-style', 'commits']);
+  assert.deepEqual(shown('COM'), ['commits']);
+  assert.deepEqual(shown(' list '), ['release-checklist']);
+  // The name only: "Kotlin" is in code-style's description, not its name.
+  assert.deepEqual(shown('kotlin'), []);
+  assert.equal(noMatch(names, ''), null);
+  assert.equal(noMatch(names, 'co'), null);
+  assert.equal(noMatch(names, ' kotlin '), 'No skill matches "kotlin".');
+  assert.equal(noMatch([], 'x'), 'No skill matches "x".');
 });
 
 test('only this machine is served: another host name is refused', async () => {
