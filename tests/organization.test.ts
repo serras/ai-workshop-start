@@ -2,10 +2,11 @@
 // JetBrains organization in tests/helpers.ts, and for smaller ones answered here.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { run } from '../src/commands.ts';
 import { openGitHub, openGitHubOrganization, parseGitHubOrganization, parseGitHubUrl } from '../src/core/github.ts';
 import { replay, type Recording } from '../src/core/replay.ts';
 import { scanOrganization } from '../src/core/scan.ts';
-import { EXAMPLE_COMMIT, github } from './helpers.ts';
+import { atlas, EXAMPLE_COMMIT, github } from './helpers.ts';
 
 const COMMIT = EXAMPLE_COMMIT;
 
@@ -19,19 +20,20 @@ test('github.com/<owner> is an organization; github.com/<owner>/<repo> a reposit
   }
 });
 
-test('an organization, with a token: one code search, every repository with skills, sorted, its warnings after its id', async () => {
+test('an organization, with a token: one code search, forks through their trees; sorted; warnings after the repository', async () => {
   const result = await scanOrganization(await openGitHubOrganization('https://github.com/JetBrains', { fetch: github, token: 'test' }));
   assert.deepEqual(result.organization, { id: 'JetBrains', url: 'https://github.com/JetBrains' });
-  // blank: nothing found by code search, so not even opened.
+  // blank: nothing found by code search, so not even opened; forked: through its tree.
   assert.deepEqual(
     result.repositories.map(({ repository, skills }) => [repository.id, skills.map((skill) => [skill.name, skill.copies])]),
     [
       ['JetBrains/docs', []],
       ['JetBrains/example', [['commits', []]]],
+      ['JetBrains/forked', [['lint', []]]],
       ['JetBrains/tools', [['release', ['.claude/skills/release/SKILL.md']], ['triage', []]]],
     ],
   );
-  const tools = result.repositories[2];
+  const tools = result.repositories[3];
   assert.equal(tools.repository.commit, COMMIT);
   assert.equal(tools.skills[0].id, 'JetBrains/tools:.agents/skills/release/SKILL.md');
   assert.deepEqual(result.warnings, ['JetBrains/tools: .github/skills/triage/SKILL.md: no front matter; using the directory name']);
@@ -91,7 +93,7 @@ test('a user\'s account is an organization too: every repository it owns, page a
       status: 200,
       body: [{ full_name: 'serras/ai-workshop-start', default_branch: 'main' }],
     },
-    'https://api.github.com/search/code?q=filename:SKILL.md+user:serras+fork:true&per_page=100&page=1': {
+    'https://api.github.com/search/code?q=filename:SKILL.md+user:serras&per_page=100&page=1': {
       status: 200,
       // More than code search answers: some skills may be missing.
       body: { total_count: 1200, items: [{ path: '.agents/skills/issue-to-pr/SKILL.md', repository: { full_name: 'serras/ai-workshop-start' } }] },
@@ -121,4 +123,50 @@ test('unknown organization → a clear message; an empty repository on its own �
     message: 'Organization not found: https://github.com/no-such-owner',
   });
   await assert.rejects(openGitHub('github.com/acme/blank', { fetch }), { message: 'The repository is empty: https://github.com/acme/blank' });
+});
+
+test('scan github.com/<owner> prints every repository with skills, each as on its own; warnings after its id', async () => {
+  const blob = (repo: string, path: string) => `  https://github.com/JetBrains/${repo}/blob/${COMMIT}/${path}`;
+  const { code, stdout, stderr } = await atlas(['scan', 'https://github.com/JetBrains']);
+  assert.equal(code, 0, stderr);
+  // docs: no skill, so not printed.
+  assert.equal(
+    stdout,
+    [
+      'JetBrains · 4 skills in 3 repositories',
+      '',
+      'JetBrains/example · 1 skill',
+      'commits — Write commit messages the way this repository does.',
+      blob('example', '.claude/skills/commits/SKILL.md'),
+      '',
+      'JetBrains/forked · 1 skill',
+      'lint — Lint the fork.',
+      blob('forked', '.cursor/skills/lint/SKILL.md'),
+      '',
+      'JetBrains/tools · 2 skills',
+      'release — Cut a release.',
+      blob('tools', '.agents/skills/release/SKILL.md'),
+      '  also in .claude/skills/release/SKILL.md',
+      'triage',
+      blob('tools', '.github/skills/triage/SKILL.md'),
+    ].join('\n'),
+  );
+  assert.equal(stderr, 'warning: JetBrains/tools: .github/skills/triage/SKILL.md: no front matter; using the directory name');
+});
+
+test('scan of an organization without any skill → No skills found; of an unknown one → exit code 1', async () => {
+  const fetch = replay({
+    'https://api.github.com/users/empty': { status: 200, body: { login: 'empty', type: 'Organization' } },
+    'https://api.github.com/orgs/empty/repos?type=all&per_page=100&page=1': { status: 200, body: [] },
+    'https://api.github.com/users/nobody': { status: 404, body: { message: 'Not Found' } },
+  });
+  const printed: string[] = [];
+  const context = {
+    open: (input: string) => openGitHubOrganization(input, { fetch }),
+    print: (text: string) => printed.push(text),
+    error: (text: string) => printed.push(`error: ${text}`),
+  };
+  assert.equal(await run(['scan', 'github.com/empty'], context), 0);
+  assert.equal(await run(['scan', 'github.com/nobody'], context), 1);
+  assert.deepEqual(printed, ['empty · 0 skills', 'No skills found', 'error: Organization not found: https://github.com/nobody']);
 });

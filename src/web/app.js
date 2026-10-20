@@ -45,9 +45,9 @@ async function scan(repo, selected, typed = '') {
     if (request !== current) return;
     if (!response.ok) return show(body.error, true);
     status.hidden = true;
-    skills = body.skills;
+    skills = body.repositories.flatMap((result) => result.skills);
     list.replaceChildren(...skills.map(item));
-    summary.textContent = `${body.repository.id} · ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`;
+    summary.textContent = `${body.id} · ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`;
     showWarnings(body.warnings);
     filter.value = typed;
     applyFilter();

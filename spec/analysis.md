@@ -17,7 +17,7 @@ Skill: id = `repo:path`, name, description, commit, the `SKILL.md` text
 ### A whole organization
 - `github.com/<owner>`: every repository of the organization, or of the user's account, scanned as each would be on its own, at its *default branch*
 - Repositories sorted by id, *ignoring case*; skills by name within each; a repository's warnings after its id: `<owner>/<repo>: …`
-- With `GITHUB_TOKEN`: **one code search** for the whole owner, forks included; only the repositories it finds are scanned; over the 1000 results it answers → a warning that some skills may be missing
+- With `GITHUB_TOKEN`: **one code search** for the whole owner; only the repositories it finds are scanned; over the 1000 results it answers → a warning that some skills may be missing. Code search leaves *forks* out: each fork's tree
 - Without it: each repository's tree, a few at a time
 - Empty and disabled repositories: nothing to scan, *skipped*; an empty repository scanned on its own → a clear message, exit code 1
 - Unknown organization → a clear message, exit code 1

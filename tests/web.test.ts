@@ -26,6 +26,9 @@ async function scanned(repo: string) {
   return { status: response.status, body: (await response.json()) as ScanAnswer };
 }
 
+/** Every skill in the answer, repository after repository. */
+const skillsOf = (body: ScanAnswer) => body.repositories.flatMap((result) => result.skills);
+
 /** The page at `search`, with the real app.js running in it against this server; restored after the test. */
 async function page(t: TestContext, search: string) {
   const dom = new JSDOM(await (await fetch(`${web.url}/`)).text(), { url: `${web.url}/${search}` });
@@ -104,16 +107,16 @@ test('a scan: the repository, its skills sorted by name with their links and the
   const root = pathToFileURL(FIXTURE).href;
   const { status, body } = await scanned(FIXTURE);
   assert.equal(status, 200);
-  assert.equal(body.repository.id, 'fixture');
+  assert.equal(body.id, 'fixture');
   assert.deepEqual(
-    body.skills.map((skill) => [skill.name, skill.link]),
+    skillsOf(body).map((skill) => [skill.name, skill.link]),
     [
       ['code-style', `${root}/.github/skills/code-style/SKILL.md`],
       ['commits', `${root}/.claude/skills/commits/SKILL.md`],
       ['release-checklist', `${root}/.agents/skills/release-checklist/SKILL.md`],
     ],
   );
-  const [codeStyle, commits, releaseChecklist] = body.skills;
+  const [codeStyle, commits, releaseChecklist] = skillsOf(body);
   assert.equal(codeStyle.description, "Follow the project's code style. Use before committing Kotlin or Java changes.");
   assert.equal(
     commits.html,
@@ -130,10 +133,10 @@ test('a scan: the repository, its skills sorted by name with their links and the
 test('a GitHub repository: links pin the scanned commit', async () => {
   const { status, body } = await scanned('https://github.com/JetBrains/example');
   assert.equal(status, 200);
-  assert.equal(body.repository.id, 'JetBrains/example');
-  assert.equal(body.skills.length, 1);
-  assert.equal(body.skills[0].link, `https://github.com/JetBrains/example/blob/${EXAMPLE_COMMIT}/.claude/skills/commits/SKILL.md`);
-  assert.match(body.skills[0].html, /<h1>Commits<\/h1>/);
+  assert.equal(body.id, 'JetBrains/example');
+  assert.equal(skillsOf(body).length, 1);
+  assert.equal(skillsOf(body)[0].link, `https://github.com/JetBrains/example/blob/${EXAMPLE_COMMIT}/.claude/skills/commits/SKILL.md`);
+  assert.match(skillsOf(body)[0].html, /<h1>Commits<\/h1>/);
 });
 
 test('unreachable repository → its message, for the page to show', async () => {
@@ -166,9 +169,9 @@ test('nothing in a SKILL.md runs: raw HTML is text, only web links are kept; a l
     ].join('\n'),
   );
   const { body } = await scanned(root);
-  assert.equal(body.skills[0].link, `${pathToFileURL(root).href}/.claude/skills/tricky/SKILL.md`);
+  assert.equal(skillsOf(body)[0].link, `${pathToFileURL(root).href}/.claude/skills/tricky/SKILL.md`);
   assert.equal(
-    body.skills[0].html,
+    skillsOf(body)[0].html,
     '<table class="front-matter"><tbody><tr><th>name</th><td>tricky</td></tr>' +
       '<tr><th>description</th><td>&#60;b&#62;bold&#60;/b&#62;</td></tr>' +
       '<tr><th>allowed-tools</th><td>- Read\n- Grep</td></tr></tbody></table>\n' +
@@ -220,7 +223,7 @@ test('the description is Markdown, in the list of skills and in the front matter
     ].join('\n'),
   );
   const { body } = await scanned(root);
-  const [skill] = body.skills;
+  const [skill] = skillsOf(body);
   // The first sentence only, not cut at the `.` in the code span; the link is only its text, in a button.
   assert.equal(skill.summary, 'Run <code>npm.test</code> with <strong>care</strong>, see the docs.');
   assert.equal(
@@ -233,7 +236,7 @@ test('the description is Markdown, in the list of skills and in the front matter
 });
 
 test('the filter: the skills whose name contains the typed text, ignoring case; every one when empty; a message for none', async () => {
-  const names = (await scanned(FIXTURE)).body.skills.map((skill) => skill.name);
+  const names = skillsOf((await scanned(FIXTURE)).body).map((skill) => skill.name);
   const shown = (typed: string) => names.filter((name) => matches(name, typed));
   assert.deepEqual(shown(''), ['code-style', 'commits', 'release-checklist']);
   assert.deepEqual(shown('   '), ['code-style', 'commits', 'release-checklist']);
@@ -318,7 +321,7 @@ test('the real CLI serves the web view until it is stopped; a port in use → a 
   assert.ok(address, line.toString());
   assert.equal((await fetch(`${address}/`)).status, 200);
   const body = (await (await fetch(`${address}/api/scan?repo=${encodeURIComponent(FIXTURE)}`)).json()) as ScanAnswer;
-  assert.equal(body.skills.length, 3);
+  assert.equal(skillsOf(body).length, 3);
 
   const port = new URL(address).port;
   const taken = spawnSync(process.execPath, [CLI, 'serve', '--port', port], { encoding: 'utf8' });

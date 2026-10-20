@@ -59,8 +59,9 @@ const REPOSITORIES_AT_ONCE = 8;
 
 /**
  * Every repository of the organization, or of the user, at its default branch. With a token, one
- * code search finds the skills of all of them, and only the repositories it finds are opened;
- * without one, each repository's tree is listed. Empty repositories have nothing to scan.
+ * code search finds the skills of all of them, and only the repositories it finds are opened, but
+ * it leaves forks out; without one, and for forks, each repository's tree is listed. Empty
+ * repositories have nothing to scan.
  */
 export async function openGitHubOrganization(input: string, options: GitHubOptions): Promise<OrganizationSource> {
   const owner = parseGitHubOrganization(input);
@@ -76,17 +77,14 @@ export async function openGitHubOrganization(input: string, options: GitHubOptio
     // A disabled repository cannot be read.
     .filter((repo) => !repo.disabled);
   const warnings: string[] = [];
-  let repositories: Info[] = listed;
-  let list: (id: string, sha: string, warnings: string[]) => Promise<string[]>;
-  if (options.token) {
-    const found = await searchOwner(github, `${user ? 'user' : 'org'}:${login}`, warnings);
-    repositories = listed.filter((repo) => found.has(repo.full_name));
-    list = async (id) => found.get(id)!;
-  } else {
-    list = (id, sha, repositoryWarnings) => treePaths(github, id, sha, repositoryWarnings, ' (GITHUB_TOKEN searches everywhere)');
-  }
+  const found = options.token ? await searchOwner(github, `${user ? 'user' : 'org'}:${login}`, warnings) : undefined;
+  // Code search leaves forks out: theirs are listed through their trees, as every one is without a token.
+  const searched = (repo: Listed) => found !== undefined && !repo.fork;
+  const repositories = listed.filter((repo) => !searched(repo) || found!.has(repo.full_name));
+  const list = (repo: Listed) => async (id: string, sha: string, repositoryWarnings: string[]) =>
+    searched(repo) ? found!.get(id)! : treePaths(github, id, sha, repositoryWarnings, found ? '' : ' (GITHUB_TOKEN searches everywhere)');
   const sources = await eachLimited(repositories, REPOSITORIES_AT_ONCE, (repo) =>
-    openRepository(github, repo, undefined, list).catch((error) => {
+    openRepository(github, repo, undefined, list(repo)).catch((error) => {
       if (error instanceof EmptyRepository) return undefined;
       throw error;
     }),
@@ -123,11 +121,14 @@ async function openRepository(
   };
 }
 
+/** A repository in its owner's list. */
+type Listed = Info & { fork?: boolean; disabled?: boolean };
+
 /** Every repository the owner has, 100 a page. */
-async function listRepositories(github: Client, url: string): Promise<(Info & { disabled?: boolean })[]> {
-  const repositories: (Info & { disabled?: boolean })[] = [];
+async function listRepositories(github: Client, url: string): Promise<Listed[]> {
+  const repositories: Listed[] = [];
   for (let page = 1; ; page++) {
-    const answer = await github.json<(Info & { disabled?: boolean })[]>(`${url}&per_page=100&page=${page}`);
+    const answer = await github.json<Listed[]>(`${url}&per_page=100&page=${page}`);
     repositories.push(...answer);
     if (answer.length < 100) return repositories;
   }
@@ -140,10 +141,10 @@ async function searchPaths(github: Client, id: string, warnings: string[]): Prom
   return [...new Set((await search(github, `repo:${id}`, warnings)).map((item) => item.path))];
 }
 
-/** Every repository's SKILL.md files, forks included, by repository; one search for the whole owner. */
+/** Every repository's SKILL.md files, by repository; one search for the whole owner. */
 async function searchOwner(github: Client, qualifier: string, warnings: string[]): Promise<Map<string, string[]>> {
   const found = new Map<string, string[]>();
-  for (const { path, repository } of await search(github, `${qualifier}+fork:true`, warnings)) {
+  for (const { path, repository } of await search(github, qualifier, warnings)) {
     const paths = found.get(repository.full_name) ?? [];
     if (!paths.includes(path)) paths.push(path);
     found.set(repository.full_name, paths);

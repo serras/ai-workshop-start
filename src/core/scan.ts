@@ -48,10 +48,10 @@ export async function scan(source: Source): Promise<ScanResult> {
 
 /** Every repository of the organization, scanned as one would be on its own. */
 export async function scanOrganization(source: OrganizationSource): Promise<OrganizationResult> {
-  const results = await eachLimited(source.repositories, REPOSITORIES_AT_ONCE, scan);
+  const results = sortRepositories(await eachLimited(source.repositories, REPOSITORIES_AT_ONCE, scan));
   return {
     organization: source.organization,
-    repositories: sortRepositories(results),
+    repositories: results,
     warnings: [
       ...source.warnings,
       ...results.flatMap((result) => result.warnings.map((warning) => `${result.repository.id}: ${warning}`)),
