@@ -27,7 +27,7 @@
 - Each group's name in *small capitals*; the stars a gold **pill**
 - The selected `SKILL.md` on a white **paper card**, a violet line on its top; the front matter's keys in a column of their own; tables and code blocks rounded
   - The card *holds all of its content*, at any width: long code spans, links and values wrap, anywhere if they must, also in the front matter and in tables, as on GitHub; only a code block scrolls sideways
-  - Its headings wrap as its text does; in a narrow card, the front matter's keys too, but only at their hyphens
+  - Its headings wrap as its text does; in a narrow card, the front matter's keys too, at their hyphens first, anywhere if a key has none and does not fit
 - A failed scan's message in a red box, wrapped in it, a long address too; the warnings amber
 - **Light and dark**, as the system is: the same colors, from one palette, `light-dark()`; system fonts, nothing loaded from elsewhere
 ## Safety

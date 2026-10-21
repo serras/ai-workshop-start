@@ -280,4 +280,4 @@ main {
 .front-matter th { width: 1%; white-space: nowrap; font-size: 0.85rem; color: var(--muted); font-weight: 600; background: var(--code); border-right: 1px solid var(--border); }
 .front-matter td { white-space: pre-wrap; }
 /* A narrow card: the keys wrap too, but only at their hyphens, to leave room for the values. */
-@container (width < 36rem) { .front-matter th { white-space: normal; overflow-wrap: normal; } }
+@container (width < 36rem) { .front-matter th { white-space: normal; min-width: 8rem; } }

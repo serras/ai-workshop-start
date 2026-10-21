@@ -147,8 +147,8 @@ test('the look: the SKILL.md card holds all of its content, and a failed scan\'s
   // A SKILL.md's headings wrap as text: the page's own name, which does not, is its header's only.
   assert.match(style, /^body > header h1 \{[^}]*white-space: nowrap;/m);
   assert.doesNotMatch(style, /^h1 \{/m);
-  // A narrow card: the front matter's keys wrap too, only at their hyphens.
-  assert.match(style, /@container \(width < 36rem\) \{ \.front-matter th \{ white-space: normal; overflow-wrap: normal; \} \}/);
+  // A narrow card: the front matter's keys wrap too, at their hyphens first, anywhere if they must.
+  assert.match(style, /@container \(width < 36rem\) \{ \.front-matter th \{ white-space: normal; min-width: 8rem; \} \}/);
   assert.match(style, /#status \{[^}]*overflow-wrap: anywhere;/);
 });
 

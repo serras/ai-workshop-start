@@ -9,6 +9,9 @@ import { offline } from '../../demo/script.ts';
 const URL = 'https://example.com/a/very/long/path/that/never/ends/and/keeps/going/on/and/on/forever/and/ever/and/ever/index.html';
 const PATH = 'repo/test-runtime/src/main/kotlin/org/jetbrains/kotlin/test/services/configuration/JvmEnvironmentConfigurator.kt';
 
+// A front matter key with no hyphen to break it at.
+const LONG_KEY = 'allowedToolsForThisVeryLongSkillWithNoHyphensAtAll';
+
 const SKILLS = {
   'long-word': `---
 name: long-word
@@ -21,6 +24,7 @@ homepage: ${URL}
 name: build-tools-add-test-federation-annotations-to-integration-tests
 description: Adds \`@MustRunOnChangesInXYZ\` to the tests of \`kotlin-gradle-plugin-integration-tests-and-some-more-of-them\`.
 disable-model-invocation: true
+${LONG_KEY}: x
 ---
 # Add Test Federation annotations to \`kotlin-gradle-plugin-integration-tests\`
 Open \`${PATH}\`, then [${URL}](${URL}) and ${URL}.
@@ -67,7 +71,7 @@ for (const width of [700, 1200]) {
   test(`at ${width} px, long code spans, links and values wrap in the card; only a code block scrolls`, async ({ page, baseURL }) => {
     await select(page, baseURL!, width, 'build-tools-add-test-federation-annotations-to-integration-tests');
     expect(await overflow(page, '#skill', 'main')).toEqual({ content: 0, box: 0 });
-    for (const part of ['#skill > header', '#skill > .markdown', '.front-matter', '.markdown > table']) {
+    for (const part of ['#skill > header', '#skill > .markdown', '.front-matter', '.markdown > table:not(.front-matter)']) {
       expect(await overflow(page, part, '#skill'), part).toEqual({ content: 0, box: 0 });
     }
     const block = await overflow(page, '#skill > .markdown pre', '#skill > .markdown');
@@ -76,7 +80,7 @@ for (const width of [700, 1200]) {
     // The keys in a column of their own, which leaves the values the most room.
     const [key, value] = await page.locator('.front-matter tr:last-child > *').evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width));
     expect(value).toBeGreaterThan(key);
-    // ... and only ever break at their hyphens: `description` on one line, `disable-model-invocation` on at most three.
+    // ... and break at their hyphens first: `description` on one line, `disable-model-invocation` on at most three.
     const lines = await page.locator('.front-matter th').evaluateAll((keys) =>
       keys.map((key) => {
         const range = document.createRange();
@@ -84,7 +88,7 @@ for (const width of [700, 1200]) {
         return [key.textContent, new Set([...range.getClientRects()].map((line) => Math.round(line.top))).size];
       }),
     );
-    for (const [text, count] of lines) expect(count, `${text}`).toBeLessThanOrEqual(String(text).split('-').length);
+    for (const [text, count] of lines) if (text !== LONG_KEY) expect(count, `${text}`).toBeLessThanOrEqual(String(text).split('-').length);
   });
 
   test(`at ${width} px, a long URL in the front matter wraps in the card`, async ({ page, baseURL }) => {
