@@ -167,6 +167,16 @@ function fake(t: TestContext, body: string): string {
   return command;
 }
 
+test('the same skills in another repository: asked once, the groups with that repository\'s ids', async () => {
+  const known: Groupings = new Map();
+  const { ask, prompts } = answering('{"groups": [{"name": "All", "skills": [1, 2]}]}');
+  const upstream = await groupSkills([skill('acme/tools', 'commits'), skill('acme/tools', 'review')], ask, known);
+  const fork = await groupSkills([skill('me/tools', 'commits'), skill('me/tools', 'review')], ask, known);
+  assert.deepEqual(upstream.groups, [{ name: 'All', skills: ['acme/tools:.claude/skills/commits/SKILL.md', 'acme/tools:.claude/skills/review/SKILL.md'] }]);
+  assert.deepEqual(fork.groups, [{ name: 'All', skills: ['me/tools:.claude/skills/commits/SKILL.md', 'me/tools:.claude/skills/review/SKILL.md'] }]);
+  assert.equal(prompts.length, 1);
+});
+
 test('claude -p: the prompt on its stdin, the answer on its stdout, with no tool and no MCP server', async (t) => {
   const { skills } = await scan(await openDirectory(FIXTURE));
   const answer = '{"groups": [{"name": "Code Quality", "skills": [1]}, {"name": "Commits & Releases", "skills": [2, 3]}]}';

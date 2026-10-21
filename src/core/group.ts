@@ -10,8 +10,8 @@ export type Group = { name: string; skills: string[] };
 
 export type Grouping = { groups: Group[]; warnings: string[] };
 
-/** The groups of each prompt, kept once the answer is a grouping: a failure is asked again. */
-export type Groupings = Map<string, Promise<Group[]>>;
+/** The answer to each prompt, kept once it is a grouping: a failure is asked again. */
+export type Groupings = Map<string, Promise<string>>;
 
 /** The group of the skills the model's answer leaves out. */
 export const OTHER = 'Other';
@@ -40,14 +40,15 @@ export async function groupSkills(skills: Skill[], model: Model, known: Grouping
   if (skills.length === 0) return { groups: [], warnings: [] };
   const sorted = sortSkills(skills);
   const prompt = groupPrompt(sorted);
-  let groups = known.get(prompt);
-  if (!groups) {
-    groups = model(prompt).then((answer) => parseGroups(answer, sorted));
-    known.set(prompt, groups);
-    groups.catch(() => known.delete(prompt));
+  let answer = known.get(prompt);
+  if (!answer) {
+    // The answer, not the groups: other skills with the same names and descriptions ask the same.
+    answer = model(prompt).then((text) => (parseGroups(text, sorted), text));
+    known.set(prompt, answer);
+    answer.catch(() => known.delete(prompt));
   }
   try {
-    return { groups: await groups, warnings: [] };
+    return { groups: parseGroups(await answer, sorted), warnings: [] };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return { groups: byRepository(sorted), warnings: [`Skills grouped by repository, not by affinity: ${reason}`] };
