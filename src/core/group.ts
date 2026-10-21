@@ -10,6 +10,9 @@ export type Group = { name: string; skills: string[] };
 
 export type Grouping = { groups: Group[]; warnings: string[] };
 
+/** The groups of each prompt, kept once the answer is a grouping: a failure is asked again. */
+export type Groupings = Map<string, Promise<Group[]>>;
+
 /** The group of the skills the model's answer leaves out. */
 export const OTHER = 'Other';
 
@@ -31,13 +34,20 @@ ${sortSkills(skills)
 /**
  * The skills by affinity, as the model groups them: groups sorted by name ignoring case, a skill
  * the answer leaves out in `Other`, last. No skill, no question. The model fails, or its answer is
- * not a grouping → by repository, and a warning.
+ * not a grouping → by repository, and a warning. With `known`, the same skills are asked about once.
  */
-export async function groupSkills(skills: Skill[], model: Model): Promise<Grouping> {
+export async function groupSkills(skills: Skill[], model: Model, known: Groupings = new Map()): Promise<Grouping> {
   if (skills.length === 0) return { groups: [], warnings: [] };
   const sorted = sortSkills(skills);
+  const prompt = groupPrompt(sorted);
+  let groups = known.get(prompt);
+  if (!groups) {
+    groups = model(prompt).then((answer) => parseGroups(answer, sorted));
+    known.set(prompt, groups);
+    groups.catch(() => known.delete(prompt));
+  }
   try {
-    return { groups: parseGroups(await model(groupPrompt(sorted)), sorted), warnings: [] };
+    return { groups: await groups, warnings: [] };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return { groups: byRepository(sorted), warnings: [`Skills grouped by repository, not by affinity: ${reason}`] };
@@ -59,7 +69,8 @@ function parseGroups(answer: string, skills: Skill[]): Group[] {
   const placed = new Set<number>();
   const named = new Map<string, Skill[]>();
   for (const entry of groups as { name?: unknown; skills?: unknown }[]) {
-    const name = typeof entry?.name === 'string' ? entry.name.trim() : '';
+    const trimmed = typeof entry?.name === 'string' ? entry.name.trim() : '';
+    const name = trimmed.toLowerCase() === OTHER.toLowerCase() ? OTHER : trimmed;
     if (!name || !Array.isArray(entry.skills)) continue;
     const members = (entry.skills as unknown[]).filter(
       (n): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= skills.length && !placed.has(n),

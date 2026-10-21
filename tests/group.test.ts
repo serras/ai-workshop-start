@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { claude } from '../src/claude.ts';
-import { groupPrompt, groupSkills, type Model } from '../src/core/group.ts';
+import { groupPrompt, groupSkills, type Groupings, type Model } from '../src/core/group.ts';
 import type { Skill } from '../src/core/model.ts';
 import { scan } from '../src/core/scan.ts';
 import { openDirectory } from '../src/local.ts';
@@ -86,6 +86,39 @@ test('a skill the answer leaves out: in Other, last; one listed twice: in its fi
   assert.deepEqual(warnings, []);
 });
 
+test('Other in any case is Other, last', async () => {
+  const answer = '{"groups": [{"name": " other ", "skills": [1]}, {"name": "Shipping", "skills": [2]}]}';
+  const { groups } = await groupSkills(SKILLS, answering(answer).ask);
+  assert.deepEqual(names(groups), [
+    ['Shipping', ['release']],
+    ['Other', ['commits', 'review', 'triage']],
+  ]);
+});
+
+test('the same skills asked about once; a failure, or an answer that is not a grouping, asked again', async () => {
+  const known: Groupings = new Map();
+  const good = answering('{"groups": [{"name": "All", "skills": [1, 2, 3, 4]}]}');
+  const results = await Promise.all([groupSkills(SKILLS, good.ask, known), groupSkills([...SKILLS].reverse(), good.ask, known)]);
+  assert.deepEqual(await groupSkills(SKILLS, good.ask, known), results[0]);
+  assert.deepEqual(results[1], results[0]);
+  assert.equal(good.prompts.length, 1);
+
+  const answers = [new Error('claude -p failed with exit code 1'), 'Sorry, I cannot.', '{"groups": [{"name": "All", "skills": [1, 2, 3, 4]}]}'];
+  const prompts: string[] = [];
+  const flaky: Model = async (prompt) => {
+    prompts.push(prompt);
+    const answer = answers.shift()!;
+    if (answer instanceof Error) throw answer;
+    return answer;
+  };
+  const again: Groupings = new Map();
+  assert.deepEqual((await groupSkills(SKILLS, flaky, again)).warnings, ['Skills grouped by repository, not by affinity: claude -p failed with exit code 1']);
+  assert.deepEqual((await groupSkills(SKILLS, flaky, again)).warnings, ['Skills grouped by repository, not by affinity: its answer is not JSON']);
+  assert.deepEqual(names((await groupSkills(SKILLS, flaky, again)).groups), [['All', ['commits', 'release', 'review', 'triage']]]);
+  assert.deepEqual(names((await groupSkills(SKILLS, flaky, again)).groups), [['All', ['commits', 'release', 'review', 'triage']]]);
+  assert.equal(prompts.length, 3);
+});
+
 test('the model fails, or its answer is not a grouping → by repository, sorted ignoring case, and a warning', async () => {
   const byRepository = [
     ['acme/Anvil', ['review', 'triage']],
@@ -134,7 +167,7 @@ function fake(t: TestContext, body: string): string {
   return command;
 }
 
-test('claude -p: the prompt on its stdin, the answer on its stdout; the same prompt asked once', async (t) => {
+test('claude -p: the prompt on its stdin, the answer on its stdout, with no tool and no MCP server', async (t) => {
   const { skills } = await scan(await openDirectory(FIXTURE));
   const answer = '{"groups": [{"name": "Code Quality", "skills": [1]}, {"name": "Commits & Releases", "skills": [2, 3]}]}';
   assert.equal(await claude({ command: FAKE_CLAUDE })(groupPrompt(skills)), answer);
@@ -143,10 +176,9 @@ test('claude -p: the prompt on its stdin, the answer on its stdout; the same pro
 
   const log = join(mkdtempSync(join(tmpdir(), 'skill-atlas-log-')), 'asked');
   t.after(() => rmSync(log, { force: true }));
-  const counted = claude({ command: fake(t, `echo "$@" >> ${log}; cat > /dev/null; echo '{"groups": []}'`) });
-  assert.deepEqual(await Promise.all([counted('one'), counted('one'), counted('two')]), ['{"groups": []}\n', '{"groups": []}\n', '{"groups": []}\n']);
-  await counted('one');
-  assert.equal(readFileSync(log, 'utf8'), '-p\n-p\n');
+  const logged = claude({ command: fake(t, `printf '[%s]' "$@" >> ${log}; cat > /dev/null; echo '{"groups": []}'`) });
+  assert.equal(await logged('one'), '{"groups": []}\n');
+  assert.equal(readFileSync(log, 'utf8'), '[-p][--tools][][--strict-mcp-config]');
 });
 
 test('claude -p fails: not installed, an error, too long → why, for the warning; asked again next time', async (t) => {

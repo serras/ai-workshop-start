@@ -1,5 +1,5 @@
 // Claude on this machine as the model that groups the skills: `claude -p`, the prompt on its stdin,
-// its answer on its stdout. The same skills are asked about once while the server runs.
+// its answer on its stdout, with no tools: the prompt holds descriptions anyone may have written.
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
@@ -17,24 +17,14 @@ const TIMEOUT = 180_000;
 
 export function claude({ command = 'claude', timeout = TIMEOUT }: ClaudeOptions = {}): Model {
   const executable = command.includes('/') ? resolve(command) : command;
-  // Only in memory, for a reload or the same scan again: nothing is stored.
-  const answers = new Map<string, Promise<string>>();
-  return (prompt) => {
-    let answer = answers.get(prompt);
-    if (!answer) {
-      answer = ask(executable, prompt, timeout);
-      answers.set(prompt, answer);
-      // A failure is not kept: it is asked again next time.
-      answer.catch(() => answers.delete(prompt));
-    }
-    return answer;
-  };
+  return (prompt) => ask(executable, prompt, timeout);
 }
 
 function ask(command: string, prompt: string, timeout: number): Promise<string> {
   return new Promise((resolve, reject) => {
     // Away from the directory it was started in: nothing there is the question's.
-    const child = spawn(command, ['-p'], { cwd: tmpdir(), stdio: ['pipe', 'pipe', 'pipe'] });
+    // Grouping needs no tool, and no MCP server.
+    const child = spawn(command, ['-p', '--tools', '', '--strict-mcp-config'], { cwd: tmpdir(), stdio: ['pipe', 'pipe', 'pipe'] });
     let late = false;
     const timer = setTimeout(() => ((late = true), child.kill()), timeout);
     const out: Buffer[] = [];

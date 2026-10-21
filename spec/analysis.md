@@ -38,8 +38,9 @@ The skills, of a repository or of a whole organization, **grouped by affinity**,
 - Asked: every skill, numbered, sorted by name, with its name and its description on one line; answered: JSON, `{"groups": [{"name": "…", "skills": [1, 2]}]}`, also in a code block or after a sentence
 - Each group's *name* says what kind of skills it holds: the names alone give an idea of the skills in the repository or the organization
 - An organization's groups go **across** its repositories
-- Groups sorted by name, ignoring case; skills by name within each; a skill the answer leaves out → `Other`, *last*; one listed twice → its first group; numbers that are no skill, ignored
+- Groups sorted by name, ignoring case; skills by name within each; a skill the answer leaves out → `Other` (its name in any case), *last*; one listed twice → its first group; numbers that are no skill, ignored
 - No skill → no group, *nothing asked*
 - Claude not installed, failing, over *3 minutes*, or answering no group of the skills → **by repository**, each a group named after its id, and a warning: `Skills grouped by repository, not by affinity: <why>`
-- The same skills asked about *once* while the web view runs, in memory only: a reload does not ask again; a failure is asked again
+- The same skills asked about *once* while the web view runs, in memory only: a reload does not ask again; a failure, or an answer that is no grouping, is asked again
+- Claude runs with *no tools* and no MCP server (`--tools "" --strict-mcp-config`): the descriptions in the prompt are written by anyone
 - The tests are *deterministic*: Claude's answers **recorded**, by prompt, in [tests/claude.json](../tests/claude.json) and [demo/claude.json](../demo/claude.json), and replayed; an unrecorded prompt is never sent. `npm run record`: asked again of `claude -p`
