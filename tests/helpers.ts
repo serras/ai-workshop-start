@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { run } from '../src/commands.ts';
-import { openGitHub, openGitHubOrganization, parseGitHubOrganization, parseGitHubUrl } from '../src/core/github.ts';
+import { isGitHubAddress, openGitHub, openGitHubOrganization, parseGitHubOrganization } from '../src/core/github.ts';
 import { replay, replayModel, type ModelRecording, type Recording } from '../src/core/replay.ts';
 import { openDirectory } from '../src/local.ts';
 
@@ -94,10 +94,11 @@ export const FAKE_CLAUDE = fileURLToPath(new URL('./claude.ts', import.meta.url)
 
 /** Opens what the CLI would, with GitHub answering from EXAMPLE; with a token, through code search. */
 export const open = (input: string) =>
-  parseGitHubUrl(input)
-    ? openGitHub(input, { fetch: github, token: 'test' })
-    : parseGitHubOrganization(input)
-      ? openGitHubOrganization(input, { fetch: github, token: 'test' })
+  parseGitHubOrganization(input)
+    ? openGitHubOrganization(input, { fetch: github, token: 'test' })
+    : // Any other GitHub address is a repository's, or openGitHub says what is wrong with it.
+      isGitHubAddress(input)
+      ? openGitHub(input, { fetch: github, token: 'test' })
       : openDirectory(input);
 
 /** `skill-atlas <args>`, as the CLI runs it, with GitHub answering from EXAMPLE. */

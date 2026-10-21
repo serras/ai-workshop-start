@@ -1,6 +1,8 @@
 # Command line
 `./skill-atlas scan <GitHub URL | directory>`; `./skill-atlas serve`: the [web view](web.md)
 - `github.com/<owner>/<repo>`: the default branch; `github.com/<owner>/<repo>/tree/<ref>`: that branch, tag or commit
+  - As copied from the browser: a query or a fragment (`?tab=readme-ov-file`, `#readme`) is *ignored*; `…/tree/<ref>/<folder>` is the whole repository at `<ref>`, not only the folder; a ref may have slashes (`feature/login`): the *shortest* beginning GitHub knows
+  - Another page on GitHub (`…/pulls`, `…/blob/…`) → a message saying it is neither a repository nor an organization, and what can be scanned; exit code 1
 - `github.com/<owner>`: every repository of the [organization](analysis.md#a-whole-organization), or of the user's account
 - A directory: `~` and `~/…`, the home directory of the user running it, even when the shell left them as typed; `~<user>` is not expanded; a relative path, against the directory it runs in
 Prints the result **at once**; *nothing is stored*.

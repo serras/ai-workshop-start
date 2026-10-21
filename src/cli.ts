@@ -5,7 +5,7 @@
 import { styleText } from 'node:util';
 import { claude } from './claude.ts';
 import { run, type Style } from './commands.ts';
-import { openGitHub, openGitHubOrganization, parseGitHubOrganization, parseGitHubUrl } from './core/github.ts';
+import { isGitHubAddress, openGitHub, openGitHubOrganization, parseGitHubOrganization } from './core/github.ts';
 import type { OrganizationSource, Source } from './core/scan.ts';
 import { openDirectory } from './local.ts';
 import { startWeb } from './web.ts';
@@ -21,10 +21,11 @@ const COLORS: Record<Style, Parameters<typeof styleText>[0]> = {
 };
 
 const open = (input: string): Promise<Source | OrganizationSource> =>
-  parseGitHubUrl(input)
-    ? openGitHub(input, { fetch, token })
-    : parseGitHubOrganization(input)
-      ? openGitHubOrganization(input, { fetch, token })
+  parseGitHubOrganization(input)
+    ? openGitHubOrganization(input, { fetch, token })
+    : // Any other GitHub address is a repository's, or openGitHub says what is wrong with it.
+      isGitHubAddress(input)
+      ? openGitHub(input, { fetch, token })
       : openDirectory(input);
 
 process.exitCode = await run(process.argv.slice(2), {
