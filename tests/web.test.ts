@@ -138,6 +138,14 @@ test('the look: the logo before the name, a palette for light and dark, nothing 
   for (const [url] of style.matchAll(/url\(([^)]*)\)/g)) assert.match(url, /^url\("data:image\/svg\+xml,/);
 });
 
+test('the look: the SKILL.md card holds all of its content, and a failed scan\'s message its red box', async () => {
+  // Laid out in a real browser by tests/visual/overflow.spec.ts; here, the rules it relies on.
+  const style = await (await fetch(`${web.url}/style.css`)).text();
+  // Long code spans, links and values wrap, also in the front matter's table; only a code block scrolls.
+  assert.match(style, /#skill > header, #skill > \.markdown \{[^}]*overflow-wrap: anywhere;/);
+  assert.match(style, /\.markdown pre \{ overflow-x: auto; \}/);
+});
+
 test('a scan: the repository, its skills sorted by name with their links and their SKILL.md as HTML, and the warnings', async () => {
   const root = pathToFileURL(FIXTURE).href;
   const { status, body } = await scanned(FIXTURE);
