@@ -92,15 +92,19 @@ test('/tree/<ref>/<folder>: the whole repository at the ref; a ref may have slas
   const pinned = '0123456789abcdef0123456789abcdef01234567';
   const noCommit = (sha: string) => ({ status: 422, body: { message: `No commit found for SHA: ${sha}` } });
   const commits = 'https://api.github.com/repos/JetBrains/example/commits';
+  const refs = 'https://api.github.com/repos/JetBrains/example/git/matching-refs';
   const github = replay({
     'https://api.github.com/repos/JetBrains/example': { status: 200, body: { full_name: 'JetBrains/example', default_branch: 'main' } },
     [`${commits}/master`]: { status: 200, body: { sha: pinned } },
     // A branch with a slash: its first segment is not a ref.
     [`${commits}/feature`]: { status: 404, body: { message: 'Not Found' } },
+    [`${refs}/heads/feature`]: { status: 200, body: [{ ref: 'refs/heads/feature/login' }, { ref: 'refs/heads/feature-flags' }] },
+    [`${refs}/tags/feature`]: { status: 200, body: [] },
     [`${commits}/feature/login`]: { status: 200, body: { sha: pinned } },
+    // However long the path, an unknown ref costs three requests.
     [`${commits}/nope`]: noCommit('nope'),
-    [`${commits}/nope/.claude`]: noCommit('nope/.claude'),
-    [`${commits}/nope/.claude/skills`]: noCommit('nope/.claude/skills'),
+    [`${refs}/heads/nope`]: { status: 200, body: [] },
+    [`${refs}/tags/nope`]: { status: 200, body: [] },
     [`https://api.github.com/repos/JetBrains/example/git/trees/${pinned}?recursive=1`]: {
       status: 200,
       body: {
@@ -124,6 +128,20 @@ test('/tree/<ref>/<folder>: the whole repository at the ref; a ref may have slas
   await assert.rejects(openGitHub('https://github.com/JetBrains/example/tree/nope/.claude/skills', { fetch: github }), {
     message: 'No branch, tag or commit nope/.claude/skills in https://github.com/JetBrains/example',
   });
+  await assert.rejects(openGitHub('https://github.com/JetBrains/example/tree/nope/a/b/c/d/e', { fetch: github }), {
+    message: 'No branch, tag or commit nope/a/b/c/d/e in https://github.com/JetBrains/example',
+  });
+});
+
+test('/tree/<ref> of an empty repository → says it is empty, as without /tree/<ref>', async () => {
+  const empty = { status: 409, body: { message: 'Git Repository is empty.' } };
+  const github = replay({
+    'https://api.github.com/repos/acme/blank': { status: 200, body: { full_name: 'acme/blank', default_branch: 'main' } },
+    'https://api.github.com/repos/acme/blank/commits/main': empty,
+  });
+  for (const url of ['https://github.com/acme/blank', 'https://github.com/acme/blank/tree/main', 'https://github.com/acme/blank/tree/main/.claude']) {
+    await assert.rejects(openGitHub(url, { fetch: github }), { message: 'The repository is empty: https://github.com/acme/blank' }, url);
+  }
 });
 
 test('another page on GitHub → says it is neither a repository nor an organization, exit code 1', async () => {

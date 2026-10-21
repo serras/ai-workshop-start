@@ -124,18 +124,34 @@ export async function openGitHubOrganization(input: string, options: GitHubOptio
  * The ref in what follows `/tree/`: `master/.claude/skills` is the branch `master` and a folder,
  * `feature/login` may be a branch with a slash. The shortest beginning GitHub knows as a branch, a
  * tag or a commit; git cannot have both a branch `feature` and a branch `feature/login`. The whole
- * repository is scanned at it, not only the folder.
+ * repository is scanned at it, not only the folder. At most three requests, however long the path:
+ * the first segment as a commit, else the branches and tags starting with it.
  */
 async function resolveRef(github: Client, id: string, tree: string): Promise<string> {
   const segments = tree.split('/');
-  for (let length = 1; length <= segments.length; length++) {
-    const ref = segments.slice(0, length).join('/');
+  const [first] = segments;
+  try {
     try {
-      await github.json(`${API}/repos/${id}/commits/${encodePath(ref)}`);
-      return ref;
+      await github.json(`${API}/repos/${id}/commits/${encodePath(first)}`);
+      return first;
     } catch (error) {
-      if (!(error instanceof UnknownRef)) throw error;
+      if (!(error instanceof NotFound) || segments.length === 1) throw error;
     }
+    const matching = await Promise.all(
+      ['heads', 'tags'].map((kind) =>
+        github.json<{ ref: string }[]>(`${API}/repos/${id}/git/matching-refs/${kind}/${encodeURIComponent(first)}`).then((refs) =>
+          refs.map(({ ref }) => ref.slice(`refs/${kind}/`.length)),
+        ),
+      ),
+    );
+    const known = new Set(matching.flat());
+    for (let length = 2; length <= segments.length; length++) {
+      const ref = segments.slice(0, length).join('/');
+      if (known.has(ref)) return ref;
+    }
+  } catch (error) {
+    if (error instanceof EmptyRepository) throw new EmptyRepository(`The repository is empty: https://github.com/${id}`);
+    if (!(error instanceof NotFound)) throw error;
   }
   throw new AtlasError(`No branch, tag or commit ${tree} in https://github.com/${id}`);
 }
@@ -277,7 +293,7 @@ function files(tree: Tree): string[] {
 class EmptyRepository extends AtlasError {}
 
 /** GitHub knows nothing by that name: 404, or 422 for the commit of a ref it cannot resolve. */
-class UnknownRef extends AtlasError {}
+class NotFound extends AtlasError {}
 
 type Client = ReturnType<typeof client>;
 
@@ -300,8 +316,8 @@ function client({ fetch, token }: GitHubOptions) {
     const body: unknown = await response.json().catch(() => undefined);
     const message = (body as { message?: unknown } | undefined)?.message;
     const text = typeof message === 'string' ? message : '';
-    if (response.status === 404) throw new UnknownRef(notFound);
-    if (response.status === 422 && /no commit found/i.test(text)) throw new UnknownRef(notFound);
+    if (response.status === 404) throw new NotFound(notFound);
+    if (response.status === 422 && /no commit found/i.test(text)) throw new NotFound(notFound);
     if ((response.status === 403 || response.status === 429) && /rate limit/i.test(text)) {
       throw new AtlasError(`GitHub rate limit reached; ${token ? 'try again in a minute' : 'set GITHUB_TOKEN'}`);
     }
