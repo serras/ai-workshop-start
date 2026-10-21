@@ -139,7 +139,7 @@ async function resolveRef(github: Client, id: string, tree: string): Promise<str
     }
     const matching = await Promise.all(
       ['heads', 'tags'].map((kind) =>
-        github.json<{ ref: string }[]>(`${API}/repos/${id}/git/matching-refs/${kind}/${encodeURIComponent(first)}`).then((refs) =>
+        github.json<{ ref: string }[]>(`${API}/repos/${id}/git/matching-refs/${kind}/${encodeURIComponent(first)}/`).then((refs) =>
           refs.map(({ ref }) => ref.slice(`refs/${kind}/`.length)),
         ),
       ),
