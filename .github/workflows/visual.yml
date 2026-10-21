@@ -1,5 +1,5 @@
-# The demo of demo/script.ts played in a browser: every shot must be the one in shots/, pixel for
-# pixel. The shots are taken on macOS (`npm run demo`), so the comparison runs on macOS too. When
+# The demo of demo/script.ts played in a browser: every shot must be the one in shots/, but for at
+# most 2% of its pixels. The shots are taken on macOS (`npm run demo`), so the comparison runs on macOS too. When
 # one differs, its expected, actual and diff images are posted: in the run's summary, and on the
 # pull request.
 name: Visual

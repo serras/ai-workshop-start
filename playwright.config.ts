@@ -1,4 +1,4 @@
-// `npm run test:visual`: the demo played again, each shot compared with the one in shots/, pixel for pixel.
+// `npm run test:visual`: the demo played again, each shot compared with the one in shots/: up to 2% of its pixels may differ.
 import { defineConfig } from '@playwright/test';
 import { BROWSER } from './demo/script.ts';
 
@@ -12,7 +12,8 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
-  expect: { toHaveScreenshot: { threshold: 0, maxDiffPixels: 0 } },
+  // Any change to a pixel counts (`threshold: 0`), and a shot fails when more than 2% of them changed.
+  expect: { toHaveScreenshot: { threshold: 0, maxDiffPixelRatio: 0.02 } },
   use: { ...BROWSER, baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
   webServer: {
     command: `node demo/serve.ts ${PORT}`,

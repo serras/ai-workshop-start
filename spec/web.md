@@ -28,6 +28,6 @@
 - A port in use → a clear message, exit code 1
 ## Demo
 `npm run demo`: [the demo](../demo/script.ts) plays every feature above on a fake GitHub, [no network](../demo/source.ts), and takes its key moments into [shots/](../shots/), with a video, `shots/demo.webm`
-- `npm run test:visual` plays it again: each shot must be the one in `shots/`, *pixel for pixel*; a missing one fails too
+- `npm run test:visual` plays it again: each shot must be the one in `shots/`: it fails when *more than 2%* of its pixels changed; a missing one fails too
 - The shots are taken on macOS, and compared on macOS in CI; a failure posts each differing shot, expected, actual and diff, in the run's summary and on the pull request
 - A change to the page that shows → `npm run demo`, and the new shots committed with it

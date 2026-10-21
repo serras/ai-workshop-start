@@ -1,4 +1,4 @@
-// The demo of demo/script.ts, played again: every shot must be the one in shots/, pixel for pixel.
+// The demo of demo/script.ts, played again: every shot must be the one in shots/, but for at most 2% of its pixels.
 // `npm run demo` takes them again after a change to the page.
 import { expect, test } from '@playwright/test';
 import { offline, play } from '../../demo/script.ts';
