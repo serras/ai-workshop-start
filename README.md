@@ -17,10 +17,13 @@ Or a whole organization, repository by repository: `./skill-atlas scan https://g
 
 Or browse them: `./skill-atlas serve` opens a web view at http://localhost:3000 (`--port` for another
 port), with the repository or organization to search at the top, its skills on the left, under the
-organization's avatar and homepage, by repository with its stars and filtered by name as you type,
-and the selected `SKILL.md` on the right, in light or dark mode as your system is.
+organization's avatar and homepage, as chips grouped by affinity and filtered by name as you type,
+and the selected `SKILL.md` on the right, with its repository's stars, in light or dark mode as your
+system is. Claude groups the skills: `claude -p` on your machine (`SKILL_ATLAS_CLAUDE` for another
+executable); without it, they are grouped by repository.
 
-Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests.
+Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests, with Claude's answers
+replayed from [tests/claude.json](tests/claude.json); `npm run record` asks Claude for them again.
 
 `npm run demo` plays every feature of the web view on a fake GitHub and takes its shots into
 [shots/](shots/), with a video; `npm run test:visual` checks the page still looks exactly like them

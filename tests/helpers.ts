@@ -1,8 +1,10 @@
-// Runs the commands the way the CLI does, with GitHub answering from EXAMPLE below.
+// Runs the commands the way the CLI does, with GitHub answering from EXAMPLE below, and Claude
+// from tests/claude.json.
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { run } from '../src/commands.ts';
 import { openGitHub, openGitHubOrganization, parseGitHubOrganization, parseGitHubUrl } from '../src/core/github.ts';
-import { replay, type Recording } from '../src/core/replay.ts';
+import { replay, replayModel, type ModelRecording, type Recording } from '../src/core/replay.ts';
 import { openDirectory } from '../src/local.ts';
 
 export const FIXTURE = fileURLToPath(new URL('../fixture', import.meta.url));
@@ -82,6 +84,13 @@ const EXAMPLE: Recording = {
 };
 
 export const github = replay(EXAMPLE);
+
+/** Claude's answers, by prompt: for ./fixture, JetBrains/example and the JetBrains organization. */
+export const CLAUDE = fileURLToPath(new URL('./claude.json', import.meta.url));
+export const model = replayModel(JSON.parse(readFileSync(CLAUDE, 'utf8')) as ModelRecording);
+
+/** An executable that answers as `claude -p` would, from tests/claude.json. */
+export const FAKE_CLAUDE = fileURLToPath(new URL('./claude.ts', import.meta.url));
 
 /** Opens what the CLI would, with GitHub answering from EXAMPLE; with a token, through code search. */
 export const open = (input: string) =>

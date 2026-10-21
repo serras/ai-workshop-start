@@ -41,7 +41,7 @@ export async function play(page: Page, url: string, { shot, pace }: Player) {
   const repo = page.locator('#repo');
   const filter = page.locator('#filter');
   const summary = page.locator('#summary');
-  const skill = (name: string) => page.locator('#list button', { has: page.locator(`strong:text-is("${name}")`) });
+  const skill = (name: string) => page.locator(`#list button[data-name="${name}"]`).first();
   const article = page.locator('#skill > header h2');
 
   async function moment(name: string) {
@@ -80,16 +80,16 @@ export async function play(page: Page, url: string, { shot, pace }: Player) {
   await moment('02-scanning');
   release();
 
-  // A repository: its owner's avatar, login and homepage; its skills and its stars.
+  // A repository: its owner's avatar, login and homepage; its skills by affinity, as chips.
   await summary.filter({ hasText: 'acme/rocket · 2 skills' }).waitFor();
   await moment('03-repository');
 
-  // A skill: its front matter as a table, its Markdown, its path linked.
+  // A skill: its front matter as a table, its Markdown, its path linked, its repository's stars.
   await skill('commits').click();
   await article.filter({ hasText: 'commits' }).waitFor();
   await moment('04-skill');
 
-  // An organization: by repository, sorted ignoring case, each with its stars and its warnings.
+  // An organization: its skills by affinity, across its repositories, and its warnings.
   await scan('https://github.com/acme', 'acme · 5 skills in 3 repositories');
   await page.locator('#warnings summary').click();
   await moment('05-organization');
@@ -116,7 +116,7 @@ export async function play(page: Page, url: string, { shot, pace }: Player) {
   await moment('09-reload');
 
   // A long list scrolls under the filter, which stays at the top; a new scan empties it.
-  await scan('https://github.com/acme/handbook', 'acme/handbook · 24 skills');
+  await scan('https://github.com/acme/handbook', 'acme/handbook · 60 skills');
   await page.locator('#found').evaluate((found) => (found.scrollTop = found.scrollHeight));
   await moment('10-scroll');
 
