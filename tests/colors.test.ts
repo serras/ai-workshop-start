@@ -103,7 +103,7 @@ test('on a terminal: the colors; NO_COLOR turns them off', { skip: !terminal && 
   const onTerminal = (env: string) =>
     spawnSync('script', ['-qec', `${env} TERM=xterm-256color "${process.execPath}" "${CLI}" scan "${FIXTURE}"`, '/dev/null'], {
       encoding: 'utf8',
-      env: (({ FORCE_COLOR, NO_COLOR, ...rest }) => rest)(process.env),
+      env: (({ FORCE_COLOR, NO_COLOR, NODE_DISABLE_COLORS, ...rest }) => rest)(process.env),
     }).stdout;
   assert.ok(onTerminal('').includes(`${ESC}1m${ESC}36mcommits${ESC}39m${ESC}22m`));
   const off = onTerminal('NO_COLOR=1');
