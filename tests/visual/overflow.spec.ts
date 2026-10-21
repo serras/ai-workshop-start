@@ -20,8 +20,9 @@ homepage: ${URL}
   'build-tools-add-test-federation-annotations-to-integration-tests': `---
 name: build-tools-add-test-federation-annotations-to-integration-tests
 description: Adds \`@MustRunOnChangesInXYZ\` to the tests of \`kotlin-gradle-plugin-integration-tests-and-some-more-of-them\`.
+disable-model-invocation: true
 ---
-# Annotate the tests
+# Add Test Federation annotations to \`kotlin-gradle-plugin-integration-tests\`
 Open \`${PATH}\`, then [${URL}](${URL}) and ${URL}.
 
 | File | What |
@@ -72,6 +73,18 @@ for (const width of [700, 1200]) {
     const block = await overflow(page, '#skill > .markdown pre', '#skill > .markdown');
     expect(block.box).toBe(0);
     expect(block.content).toBeGreaterThan(0);
+    // The keys in a column of their own, which leaves the values the most room.
+    const [key, value] = await page.locator('.front-matter tr:last-child > *').evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().width));
+    expect(value).toBeGreaterThan(key);
+    // ... and only ever break at their hyphens: `description` on one line, `disable-model-invocation` on at most three.
+    const lines = await page.locator('.front-matter th').evaluateAll((keys) =>
+      keys.map((key) => {
+        const range = document.createRange();
+        range.selectNodeContents(key);
+        return [key.textContent, new Set([...range.getClientRects()].map((line) => Math.round(line.top))).size];
+      }),
+    );
+    for (const [text, count] of lines) expect(count, `${text}`).toBeLessThanOrEqual(String(text).split('-').length);
   });
 
   test(`at ${width} px, a long URL in the front matter wraps in the card`, async ({ page, baseURL }) => {
