@@ -14,7 +14,8 @@
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "demo": "node demo/record.ts",
-    "test:visual": "playwright test"
+    "test:visual": "playwright test",
+    "record": "node scripts/record-claude.ts tests/claude.json demo/claude.json"
   },
   "dependencies": {
     "marked": "^18.1.1",
