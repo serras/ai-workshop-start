@@ -404,6 +404,16 @@ test('the page: a scan from the address that fails keeps its skill and its filte
   assert.equal(view.$<HTMLInputElement>('#filter').value, 'com');
 });
 
+test('the page: a failed request is in the address too', async (t) => {
+  const view = await page(t, `?repo=${encodeURIComponent(FIXTURE)}`);
+  await scannedIn(view, 'fixture');
+  globalThis.fetch = () => Promise.reject(new Error('offline'));
+  view.$<HTMLInputElement>('#repo').value = 'https://github.com/owner/repo';
+  view.$<HTMLFormElement>('#scan').requestSubmit();
+  assert.equal(await statusIn(view), 'Cannot scan https://github.com/owner/repo: offline');
+  assert.equal(new URL(view.location.href).searchParams.get('repo'), 'https://github.com/owner/repo');
+});
+
 test('an organization: every repository with skills, sorted, each skill after its repository', async () => {
   const { status, body } = await scanned('https://github.com/JetBrains');
   assert.equal(status, 200);
