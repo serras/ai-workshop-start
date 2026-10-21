@@ -263,8 +263,8 @@ main {
 
 .markdown table, .front-matter { border-collapse: separate; border-spacing: 0; margin: 1rem 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .markdown th, .markdown td { padding: 0.4rem 0.75rem; text-align: left; vertical-align: top; border-top: 1px solid var(--border); }
-.markdown tr:first-child > th, .markdown tr:first-child > td, .markdown thead + tbody tr:first-child > * { border-top: 0; }
-.markdown thead th { background: var(--code); border-top: 0; }
+.markdown tr:first-child > th, .markdown tr:first-child > td { border-top: 0; }
+.markdown thead th { background: var(--code); }
 .markdown thead + tbody tr:first-child > * { border-top: 1px solid var(--border); }
 .front-matter th { width: 1%; white-space: nowrap; font-size: 0.85rem; color: var(--muted); font-weight: 600; background: var(--code); border-right: 1px solid var(--border); }
 .front-matter td { white-space: pre-wrap; }
