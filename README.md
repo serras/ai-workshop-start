@@ -1,7 +1,7 @@
 # Skill Atlas
 
 Every agent skill in a repository: `./skill-atlas scan` finds each `SKILL.md` and prints its name,
-description and link.
+description and link, in colors on a terminal (`NO_COLOR` turns them off, `FORCE_COLOR` on).
 
 ```console
 $ npm ci
@@ -18,7 +18,7 @@ Or a whole organization, repository by repository: `./skill-atlas scan https://g
 Or browse them: `./skill-atlas serve` opens a web view at http://localhost:3000 (`--port` for another
 port), with the repository or organization to search at the top, its skills on the left, under the
 organization's avatar and homepage, by repository with its stars and filtered by name as you type,
-and the selected `SKILL.md` on the right.
+and the selected `SKILL.md` on the right, in light or dark mode as your system is.
 
 Set `GITHUB_TOKEN` for a higher GitHub rate limit. `npm test` runs the tests.
 
