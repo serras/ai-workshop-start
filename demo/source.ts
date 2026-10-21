@@ -1,8 +1,9 @@
 // The demo's fake GitHub: what it answers for the acme organization, a few of its repositories,
 // a user whose profile GitHub does not give, and an empty organization. Local directories are read
-// as the CLI reads them. Nothing reaches the network.
+// as the CLI reads them; Claude answers from demo/claude.json. Nothing reaches the network.
+import { readFileSync } from 'node:fs';
 import { openGitHub, openGitHubOrganization, parseGitHubOrganization, parseGitHubUrl } from '../src/core/github.ts';
-import { replay, type Recording } from '../src/core/replay.ts';
+import { replay, replayModel, type ModelRecording, type Recording } from '../src/core/replay.ts';
 import { openDirectory } from '../src/local.ts';
 
 /** The commit every repository is scanned at. */
@@ -48,8 +49,8 @@ const SKILLS: [string, string, string][] = [
   ['acme/forked', '.cursor/skills/lint/SKILL.md', skill('lint', 'Lint the fork before pushing.')],
   ['acme/docs', 'docs/SKILL.md', '# Not a skill: outside the skill roots\n'],
   ['solo/notes', '.claude/skills/notes/SKILL.md', skill('notes', 'Take notes as you go.', '# Notes\n')],
-  // Enough skills for the list to scroll under the filter.
-  ...Array.from({ length: 24 }, (_, i): [string, string, string] => {
+  // Enough skills for the list of chips to scroll under the filter.
+  ...Array.from({ length: 60 }, (_, i): [string, string, string] => {
     const name = `chapter-${String(i + 1).padStart(2, '0')}`;
     return ['acme/handbook', `.agents/skills/${name}/SKILL.md`, skill(name, `Chapter ${i + 1} of the handbook.`, `# Chapter ${i + 1}\n`)];
   }),
@@ -103,6 +104,9 @@ const RECORDING: Recording = {
 };
 
 const github = replay(RECORDING);
+
+/** Claude's answers, by prompt, for every scan of the demo. */
+export const model = replayModel(JSON.parse(readFileSync(new URL('./claude.json', import.meta.url), 'utf8')) as ModelRecording);
 
 /** Opens what the CLI would, with GitHub answering from RECORDING, with a token: through code search. */
 export const open = (input: string) =>

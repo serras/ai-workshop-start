@@ -7,13 +7,13 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { startWeb } from '../src/web.ts';
 import { BROWSER, SHOT, offline, play } from './script.ts';
-import { open } from './source.ts';
+import { model, open } from './source.ts';
 
 const SHOTS = fileURLToPath(new URL('../shots', import.meta.url));
 mkdirSync(SHOTS, { recursive: true });
 const videos = mkdtempSync(join(tmpdir(), 'skill-atlas-demo-'));
 
-const web = await startWeb({ open, port: 0 });
+const web = await startWeb({ open, model, port: 0 });
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({ ...BROWSER, recordVideo: { dir: videos, size: BROWSER.viewport! } });

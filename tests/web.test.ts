@@ -18,9 +18,9 @@ import { renderSkill } from '../src/render.ts';
 import { startWeb, type ScanAnswer } from '../src/web.ts';
 import { matches, noMatch } from '../src/web/filter.js';
 import { stars } from '../src/web/stars.js';
-import { AVATAR, CLI, EXAMPLE_COMMIT, FIXTURE, open } from './helpers.ts';
+import { AVATAR, CLI, EXAMPLE_COMMIT, FAKE_CLAUDE, FIXTURE, model, open } from './helpers.ts';
 
-const web = await startWeb({ open, port: 0 });
+const web = await startWeb({ open, model, port: 0 });
 test.after(() => web.close());
 
 /** What the page fetches for the repository typed at the top. */
@@ -52,8 +52,8 @@ async function page(t: TestContext, search: string) {
   await import(`../src/web/app.js?page=${++pages}`);
   const $ = <T extends Element = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
   /** The names listed, the filtered-out ones left aside. */
-  const listed = () => [...document.querySelectorAll('#list section:not([hidden]) li:not([hidden]) strong')].map((name) => name.textContent);
-  /** The repositories listed, with how many skills each shows. */
+  const listed = () => [...document.querySelectorAll('#list section:not([hidden]) li:not([hidden]) button')].map((chip) => chip.textContent);
+  /** The groups listed, with how many skills each shows. */
   const groups = () => [...document.querySelectorAll('#list section:not([hidden]) h3')].map((heading) => heading.textContent);
   /** Whether the element and all around it are shown. */
   const shown = (selector: string) => {
@@ -125,12 +125,14 @@ test('the look: the logo before the name, a palette for light and dark, nothing 
   const style = await (await fetch(`${web.url}/style.css`)).text();
   assert.match(style, /color-scheme: light dark;/);
   // Every color of the palette, for light and dark: no @media for the dark one.
-  for (const color of ['--accent', '--text', '--muted', '--canvas', '--pane', '--paper', '--border', '--selected']) {
+  for (const color of ['--accent', '--text', '--muted', '--canvas', '--pane', '--paper', '--border', '--on-accent']) {
     assert.match(style, new RegExp(`${color}: light-dark\\(#[0-9a-f]{6}, #[0-9a-f]{6}\\);`), color);
   }
   assert.match(style, /body > header \{[^}]*background: var\(--gradient\);/);
-  // The selected skill: its accent bar.
-  assert.match(style, /#list button\[aria-current="true"\] \{[^}]*box-shadow: inset 4px 0 0 var\(--accent\)/);
+  // The skills as chips, as many on a line as fit; the selected one filled with the accent.
+  assert.match(style, /#skills ul \{[^}]*display: flex; flex-wrap: wrap;/);
+  assert.match(style, /#list button \{[^}]*border-radius: 999px;/);
+  assert.match(style, /#list button\[aria-current="true"\] \{[^}]*background: var\(--accent\);[^}]*color: var\(--on-accent\);/);
   // The page's policy loads nothing from elsewhere: no font, no import, images only data:.
   assert.doesNotMatch(style, /@import|@font-face/);
   for (const [url] of style.matchAll(/url\(([^)]*)\)/g)) assert.match(url, /^url\("data:image\/svg\+xml,/);
@@ -286,6 +288,35 @@ test('the filter: the skills whose name contains the typed text, ignoring case; 
   assert.equal(noMatch([], 'x'), 'No skills found');
 });
 
+test('the page: the skills by group, each group\'s name and count, then its skills as chips, only their names', async (t) => {
+  const view = await page(t, `?repo=${encodeURIComponent(FIXTURE)}`);
+  await scannedIn(view, 'fixture');
+  assert.deepEqual(view.groups(), ['Code Quality · 1 skill', 'Commits & Releases · 2 skills']);
+  assert.deepEqual(view.listed(), ['code-style', 'commits', 'release-checklist']);
+  const chip = view.$('#list button[data-id="fixture:.claude/skills/commits/SKILL.md"]');
+  // The name only; the first sentence of the description on hover, as text.
+  assert.equal(chip.innerHTML, 'commits');
+  assert.equal(chip.title, 'Write commit messages the way this repository does.');
+  assert.equal(view.$('#list button[data-id="fixture:.agents/skills/release-checklist/SKILL.md"]').hasAttribute('title'), false);
+  chip.click();
+  assert.equal(chip.getAttribute('aria-current'), 'true');
+  assert.equal(view.$('#skill h2').textContent, 'commits');
+});
+
+test('the page: a description\'s Markdown on hover is its text, and nothing of its HTML runs', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, '.claude/skills/styled'), { recursive: true });
+  writeFileSync(join(root, '.claude/skills/styled/SKILL.md'), '---\nname: styled\ndescription: Run `npm.test` with **care**, <img src=x onerror=alert(1)>. Then stop.\n---\n');
+  const view = await page(t, `?repo=${encodeURIComponent(root)}`);
+  const name = root.split('/').at(-1)!;
+  await scannedIn(view, name, `${name} · 1 skill`);
+  // Claude is not asked here: by repository, and a warning.
+  assert.deepEqual(view.groups(), [`${name} · 1 skill`]);
+  assert.equal(view.$('#list button').title, 'Run npm.test with care, <img src=x onerror=alert(1)>.');
+  assert.equal(view.$('#list img'), null);
+});
+
 test('the page: the selected skill stays on the right when the filter leaves it out of the list', async (t) => {
   const view = await page(t, `?repo=${encodeURIComponent(FIXTURE)}&skill=${encodeURIComponent('fixture:.claude/skills/commits/SKILL.md')}`);
   await scannedIn(view, 'fixture');
@@ -294,9 +325,9 @@ test('the page: the selected skill stays on the right when the filter leaves it 
   assert.deepEqual(view.listed(), ['code-style']);
   assert.equal(view.$('#skill h2').textContent, 'commits');
   assert.equal(view.$('#no-match').hidden, true);
-  // The summary stays the scan's; the repository's count is what the filter found.
+  // The summary stays the scan's; the group's count is what the filter found.
   assert.equal(view.$('#summary').textContent, 'fixture · 3 skills');
-  assert.deepEqual(view.groups(), ['fixture · 1 skill']);
+  assert.deepEqual(view.groups(), ['Code Quality · 1 skill']);
   view.type('kotlin');
   assert.deepEqual(view.listed(), []);
   assert.deepEqual(view.groups(), []);
@@ -361,20 +392,60 @@ test('an organization: every repository with skills, sorted, each skill after it
   assert.deepEqual(body.warnings, ['JetBrains/tools: .github/skills/triage/SKILL.md: no front matter; using the directory name']);
 });
 
-test('the page: an organization\'s skills by repository, each with how many the filter found; one with none is left out', async (t) => {
+test('the skill map: the skills grouped by affinity, by Claude, each group named, sorted by name, its skills by name', async () => {
+  const { body } = await scanned(FIXTURE);
+  assert.deepEqual(body.groups, [
+    { name: 'Code Quality', skills: ['fixture:.github/skills/code-style/SKILL.md'] },
+    { name: 'Commits & Releases', skills: ['fixture:.claude/skills/commits/SKILL.md', 'fixture:.agents/skills/release-checklist/SKILL.md'] },
+  ]);
+  // An organization's groups go across its repositories.
+  const organization = (await scanned('github.com/JetBrains')).body;
+  assert.deepEqual(organization.groups, [
+    { name: 'Code Quality', skills: ['JetBrains/forked:.cursor/skills/lint/SKILL.md'] },
+    { name: 'Commits & Releases', skills: ['JetBrains/example:.claude/skills/commits/SKILL.md', 'JetBrains/tools:.agents/skills/release/SKILL.md'] },
+    { name: 'Issue Tracking', skills: ['JetBrains/tools:.github/skills/triage/SKILL.md'] },
+  ]);
+  assert.deepEqual(organization.warnings, ['JetBrains/tools: .github/skills/triage/SKILL.md: no front matter; using the directory name']);
+  // No skill, nothing to group.
+  assert.deepEqual((await scanned('github.com/empty')).body.groups, []);
+});
+
+test('the skill map: Claude cannot group the skills → by repository, and a warning', async (t) => {
+  const server = await startWeb({ open, model: async () => Promise.reject(new Error('claude is not installed')), port: 0 });
+  t.after(() => server.close());
+  const answer = async (repo: string) => (await (await realFetch(`${server.url}/api/scan?repo=${encodeURIComponent(repo)}`)).json()) as ScanAnswer;
+  const organization = await answer('github.com/JetBrains');
+  assert.deepEqual(
+    organization.groups.map((group) => [group.name, group.skills.length]),
+    [
+      ['JetBrains/example', 1],
+      ['JetBrains/forked', 1],
+      ['JetBrains/tools', 2],
+    ],
+  );
+  assert.equal(organization.warnings.at(-1), 'Skills grouped by repository, not by affinity: claude is not installed');
+  const repository = await answer('github.com/JetBrains/example');
+  assert.deepEqual(repository.groups, [{ name: 'JetBrains/example', skills: ['JetBrains/example:.claude/skills/commits/SKILL.md'] }]);
+  assert.deepEqual(repository.warnings, ['Skills grouped by repository, not by affinity: claude is not installed']);
+});
+
+test('the page: an organization\'s skills by group, across its repositories, each with how many the filter found; one with none is left out', async (t) => {
   const tools = 'JetBrains/tools:.agents/skills/release/SKILL.md';
   const view = await page(t, `?repo=${encodeURIComponent('github.com/JetBrains')}&skill=${encodeURIComponent(tools)}`);
   await scannedIn(view, 'JetBrains', 'JetBrains · 4 skills in 3 repositories');
-  assert.deepEqual(view.groups(), ['JetBrains/example · 1 skill', 'JetBrains/forked · 1 skill', 'JetBrains/tools · 2 skills']);
-  assert.deepEqual(view.listed(), ['commits', 'lint', 'release', 'triage']);
+  assert.deepEqual(view.groups(), ['Code Quality · 1 skill', 'Commits & Releases · 2 skills', 'Issue Tracking · 1 skill']);
+  assert.deepEqual(view.listed(), ['lint', 'commits', 'release', 'triage']);
+  // On hover, the chip's repository and the first sentence of its description.
+  assert.equal(view.$(`#list button[data-id="${tools}"]`).title, 'JetBrains/tools: Cut a release.');
+  assert.equal(view.$('#list button[data-id="JetBrains/tools:.github/skills/triage/SKILL.md"]').title, 'JetBrains/tools');
   // The selected skill, from the address: its path says which repository it is in.
   assert.equal(view.$('#skill h2').textContent, 'release');
   assert.equal(view.$('#skill .path').textContent, 'JetBrains/tools/.agents/skills/release/SKILL.md');
   view.type('LINT');
-  assert.deepEqual(view.groups(), ['JetBrains/forked · 1 skill']);
+  assert.deepEqual(view.groups(), ['Code Quality · 1 skill']);
   assert.deepEqual(view.listed(), ['lint']);
   view.type('i');
-  assert.deepEqual(view.groups(), ['JetBrains/example · 1 skill', 'JetBrains/forked · 1 skill', 'JetBrains/tools · 1 skill']);
+  assert.deepEqual(view.groups(), ['Code Quality · 1 skill', 'Commits & Releases · 1 skill', 'Issue Tracking · 1 skill']);
   assert.equal(view.$('#no-match').hidden, true);
   view.type('nothing like it');
   assert.deepEqual(view.groups(), []);
@@ -452,7 +523,7 @@ test('the owner\'s profile unanswered: the scan still shows, with the owner\'s l
     'https://api.github.com/repos/acme/api/commits/main': { status: 200, body: { sha: EXAMPLE_COMMIT } },
     [`https://api.github.com/repos/acme/api/git/trees/${EXAMPLE_COMMIT}?recursive=1`]: { status: 200, body: { truncated: false, tree: [] } },
   });
-  const server = await startWeb({ open: (input) => openGitHub(input, { fetch: github }), port: 0 });
+  const server = await startWeb({ open: (input) => openGitHub(input, { fetch: github }), model, port: 0 });
   t.after(() => server.close());
   const body = (await (await realFetch(`${server.url}/api/scan?repo=${encodeURIComponent('github.com/acme/api')}`)).json()) as ScanAnswer;
   assert.deepEqual(body.owner, { id: 'acme', url: 'https://github.com/acme' });
@@ -460,8 +531,9 @@ test('the owner\'s profile unanswered: the scan still shows, with the owner\'s l
   assert.equal(body.repositories[0].repository.stars, 3);
 });
 
-test('the page: the owner above the skills, its avatar, login and homepage; each repository\'s stars after its id', async (t) => {
-  const view = await page(t, `?repo=${encodeURIComponent('github.com/JetBrains/example')}`);
+test('the page: the owner above the skills, its avatar, login and homepage; the selected skill\'s repository\'s stars after its path', async (t) => {
+  const commits = 'JetBrains/example:.claude/skills/commits/SKILL.md';
+  const view = await page(t, `?repo=${encodeURIComponent('github.com/JetBrains/example')}&skill=${encodeURIComponent(commits)}`);
   await scannedIn(view, 'JetBrains/example', 'JetBrains/example · 1 skill');
   assert.equal(view.shown('#owner'), true);
   assert.equal(view.$('#owner').nextElementSibling, view.$('#summary'));
@@ -470,21 +542,25 @@ test('the page: the owner above the skills, its avatar, login and homepage; each
   assert.equal(view.$('#owner .login').textContent, 'JetBrains');
   assert.equal(view.$<HTMLAnchorElement>('#owner .homepage').href, 'https://www.jetbrains.com/');
   assert.equal(view.$('#owner .homepage').textContent, 'www.jetbrains.com');
-  assert.equal(view.$('#list .stars').textContent, '★ 56.2k');
-  assert.equal(view.$('#list .stars').title, '56,234 stars');
+  assert.equal(view.$('#skill .path').nextElementSibling, view.$('#skill .stars'));
+  assert.equal(view.$('#skill .stars').textContent, '★ 56.2k');
+  assert.equal(view.$('#skill .stars').title, '56,234 stars');
+  // Not in the list: only the names there.
+  assert.equal(view.$('#list .stars'), null);
 
   const organization = await page(t, `?repo=${encodeURIComponent('github.com/JetBrains')}`);
   await scannedIn(organization, 'JetBrains', 'JetBrains · 4 skills in 3 repositories');
   assert.equal(organization.$('#owner .login').textContent, 'JetBrains');
+  const starsOf = (id: string) => {
+    organization.$<HTMLButtonElement>(`#list button[data-id="${id}"]`).click();
+    return [organization.$('#skill .path').textContent, organization.$('#skill .stars').textContent];
+  };
   assert.deepEqual(
-    [...organization.window.document.querySelectorAll('#list section')].map((section) => [
-      section.querySelector('h3')!.textContent,
-      section.querySelector('.stars')!.textContent,
-    ]),
+    ['JetBrains/example:.claude/skills/commits/SKILL.md', 'JetBrains/forked:.cursor/skills/lint/SKILL.md', 'JetBrains/tools:.agents/skills/release/SKILL.md'].map(starsOf),
     [
-      ['JetBrains/example · 1 skill', '★ 56.2k'],
-      ['JetBrains/forked · 1 skill', '★ 1.3m'],
-      ['JetBrains/tools · 2 skills', '★ 999'],
+      ['JetBrains/example/.claude/skills/commits/SKILL.md', '★ 56.2k'],
+      ['JetBrains/forked/.cursor/skills/lint/SKILL.md', '★ 1.3m'],
+      ['JetBrains/tools/.agents/skills/release/SKILL.md', '★ 999'],
     ],
   );
 });
@@ -497,10 +573,11 @@ test('the page: an owner whose profile lists no avatar or homepage → its login
   assert.equal(empty.shown('#owner img'), false);
   assert.equal(empty.shown('#owner .homepage'), false);
 
-  const local = await page(t, `?repo=${encodeURIComponent(FIXTURE)}`);
+  const local = await page(t, `?repo=${encodeURIComponent(FIXTURE)}&skill=${encodeURIComponent('fixture:.claude/skills/commits/SKILL.md')}`);
   await scannedIn(local, 'fixture');
   assert.equal(local.shown('#owner'), false);
-  assert.equal(local.$('#list .stars'), null);
+  assert.equal(local.$('#skill h2').textContent, 'commits');
+  assert.equal(local.$('#skill .stars'), null);
 });
 
 test('only this machine is served: another host name is refused', async () => {
@@ -517,7 +594,9 @@ test('only this machine is served: another host name is refused', async () => {
 });
 
 test('the real CLI serves the web view until it is stopped; a port in use → a clear message, exit code 1', async (t) => {
-  const server = spawn(process.execPath, [CLI, 'serve', '--port', '0'], { stdio: ['ignore', 'pipe', 'inherit'] });
+  // Claude as recorded: the real one is never asked.
+  const env = { ...process.env, SKILL_ATLAS_CLAUDE: FAKE_CLAUDE };
+  const server = spawn(process.execPath, [CLI, 'serve', '--port', '0'], { stdio: ['ignore', 'pipe', 'inherit'], env });
   t.after(() => server.kill());
   const [line] = (await once(server.stdout, 'data')) as [Buffer];
   const address = /^Skill Atlas at (http:\/\/localhost:\d+)\n$/.exec(line.toString())?.[1];
@@ -525,6 +604,11 @@ test('the real CLI serves the web view until it is stopped; a port in use → a 
   assert.equal((await fetch(`${address}/`)).status, 200);
   const body = (await (await fetch(`${address}/api/scan?repo=${encodeURIComponent(FIXTURE)}`)).json()) as ScanAnswer;
   assert.equal(skillsOf(body).length, 3);
+  // Grouped by `claude -p`, the one SKILL_ATLAS_CLAUDE names.
+  assert.deepEqual(
+    body.groups.map((group) => group.name),
+    ['Code Quality', 'Commits & Releases'],
+  );
 
   const port = new URL(address).port;
   const taken = spawnSync(process.execPath, [CLI, 'serve', '--port', port], { encoding: 'utf8' });

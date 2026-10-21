@@ -1,6 +1,7 @@
 /*
- * Skill Atlas: an indigo-to-violet header, the skills as cards on a tinted pane, the selected one
- * with an accent bar, and its SKILL.md on a paper card. Light and dark, from the same variables.
+ * Skill Atlas: an indigo-to-violet header, the skills as chips on a tinted pane, by group, the
+ * selected one filled with the accent, and its SKILL.md on a paper card. Light and dark, from the
+ * same variables.
  */
 :root {
   color-scheme: light dark;
@@ -15,7 +16,7 @@
   --paper: light-dark(#ffffff, #201c2d);
   --border: light-dark(#e3e0f0, #312c42);
   --hover: light-dark(#f0eefb, #262135);
-  --selected: light-dark(#eef0ff, #2a2546);
+  --on-accent: light-dark(#ffffff, #121019);
   --code: light-dark(#f4f2fb, #15121e);
   --danger: light-dark(#c62f3a, #ff8a8f);
   --caution: light-dark(#a76200, #f5c36b);
@@ -122,16 +123,19 @@ main {
 
 #skills h2 { font-size: 1rem; font-weight: 700; margin: 0 0.5rem 0.5rem; }
 
-#skills ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+/* The chips: as many on a line as fit. */
+#skills ul { list-style: none; margin: 0 0.15rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+#skills li { min-width: 0; max-width: 100%; }
+#skills li[hidden] { display: none; }
 
-.repository > header {
+.group > header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin: 0.9rem 0.5rem 0.4rem;
 }
 
-.repository h3 {
+.group h3 {
   flex: 1;
   font-size: 0.72rem;
   font-weight: 700;
@@ -142,7 +146,10 @@ main {
   overflow-wrap: anywhere;
 }
 
-.repository .stars {
+.stars {
+  display: inline-block;
+  vertical-align: 0.05em;
+  margin-left: 0.35rem;
   font-size: 0.75rem;
   font-weight: 600;
   white-space: nowrap;
@@ -192,27 +199,29 @@ main {
 
 #list button {
   display: block;
-  width: 100%;
-  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: inherit;
   background: var(--paper);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.7rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.75rem;
   cursor: pointer;
   transition: border-color 120ms, background-color 120ms;
 }
 
 #list button:hover { background: var(--hover); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
 #list button[aria-current="true"] {
-  background: var(--selected);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  box-shadow: inset 4px 0 0 var(--accent), var(--shadow);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow);
 }
-#list button[aria-current="true"] > strong { color: var(--accent-strong); }
-#list button > strong { font-weight: 600; }
-#list span { display: block; font-size: 0.85rem; color: var(--muted); }
 
 #warnings { margin: 0.9rem 0.15rem 0; font-size: 0.85rem; color: var(--caution); }
 #warnings summary { cursor: pointer; font-weight: 600; }

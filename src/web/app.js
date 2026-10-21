@@ -1,7 +1,8 @@
 // The web view: scans what is typed at the top, a repository or an organization, lists the skills
-// on the left, by repository, and shows the selected SKILL.md on the right. `?repo=…&skill=…` keeps
-// both across a reload, `&filter=…` the filter at the top of the list, applied as it is typed. On
-// GitHub, the owner's avatar and homepage above the skills, and each repository's stars.
+// on the left, by affinity, each group's skills as chips, and shows the selected SKILL.md on the
+// right. `?repo=…&skill=…` keeps both across a reload, `&filter=…` the filter at the top of the list,
+// applied as it is typed. On GitHub, the owner's avatar and homepage above the skills, and the
+// selected skill's repository's stars.
 import { count, matches, noMatch } from './filter.js';
 import { stars } from './stars.js';
 
@@ -20,6 +21,8 @@ const article = document.querySelector('#skill');
 /** The latest scan; an answer to an earlier one is dropped. */
 let current = 0;
 let skills = [];
+/** The latest scan's repositories, by id: for the selected skill's stars. */
+let repositories = new Map();
 /** Whether the latest scan is an organization's: its skills come from several repositories. */
 let organization = false;
 
@@ -52,8 +55,10 @@ async function scan(repo, selected, typed = '') {
     status.hidden = true;
     organization = Boolean(body.organization);
     skills = body.repositories.flatMap((result) => result.skills);
+    repositories = new Map(body.repositories.map((result) => [result.repository.id, result.repository]));
+    const byId = new Map(skills.map((skill) => [skill.id, skill]));
     showOwner(body.owner);
-    list.replaceChildren(...body.repositories.map(group));
+    list.replaceChildren(...body.groups.map((found) => group(found.name, found.skills.map((id) => byId.get(id)))));
     summary.textContent = organization
       ? `${body.id} · ${count(skills.length)}${skills.length ? ` in ${count(body.repositories.length, 'repository', 'repositories')}` : ''}`
       : `${body.id} · ${count(skills.length)}`;
@@ -96,56 +101,55 @@ function showOwner(account) {
   }
 }
 
-/** One repository's skills: its id and how many of them the filter leaves, its stars, then the skills. */
-function group({ repository, skills }) {
+/** One group of skills: its name and how many of them the filter leaves, then the skills, as chips. */
+function group(name, members) {
   const section = document.createElement('section');
-  section.className = 'repository';
-  section.dataset.id = repository.id;
+  section.className = 'group';
+  section.dataset.name = name;
   const header = document.createElement('header');
   header.append(document.createElement('h3'));
-  if (typeof repository.stars === 'number') {
-    const badge = document.createElement('span');
-    badge.className = 'stars';
-    badge.textContent = `★ ${stars(repository.stars)}`;
-    badge.title = `${repository.stars.toLocaleString('en-US')} ${repository.stars === 1 ? 'star' : 'stars'}`;
-    header.append(badge);
-  }
   const ul = document.createElement('ul');
-  ul.append(...skills.map(item));
+  ul.append(...members.map(item));
   section.append(header, ul);
   return section;
 }
 
-/** One skill in the list: its name and the first sentence of its description, rendered by the server. */
+/**
+ * One skill in the list: a chip with its name only; the first sentence of its description, as
+ * text, on hover, after its repository for an organization.
+ */
 function item(skill) {
   const button = document.createElement('button');
   button.type = 'button';
   button.dataset.id = skill.id;
   button.dataset.name = skill.name;
-  const name = document.createElement('strong');
-  name.textContent = skill.name;
-  button.append(name);
-  if (skill.summary) {
-    const description = document.createElement('span');
-    description.innerHTML = skill.summary;
-    button.append(description);
-  }
+  button.textContent = skill.name;
+  const summary = text(skill.summary);
+  const hint = organization ? [skill.repository, summary].filter(Boolean).join(': ') : summary;
+  if (hint) button.title = hint;
   button.addEventListener('click', () => select(skill));
   const li = document.createElement('li');
   li.append(button);
   return li;
 }
 
+/** The text of HTML rendered by the server: parsed in a template, where nothing of it loads or runs. */
+function text(html) {
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  return template.content.textContent.trim();
+}
+
 /**
- * Lists only the skills whose name matches the filter, by repository, each with how many it found;
- * a repository with none is left out. The selected skill stays on the right.
+ * Lists only the skills whose name matches the filter, by group, each with how many it found; a
+ * group with none is left out. The selected skill stays on the right.
  */
 function applyFilter() {
   for (const section of list.children) {
     const items = [...section.querySelectorAll('li')];
     for (const li of items) li.hidden = !matches(li.firstChild.dataset.name, filter.value);
     const found = items.filter((li) => !li.hidden).length;
-    section.querySelector('h3').textContent = `${section.dataset.id} · ${count(found)}`;
+    section.querySelector('h3').textContent = `${section.dataset.name} · ${count(found)}`;
     section.hidden = found === 0;
   }
   const message = noMatch(skills.map((skill) => skill.name), filter.value);
@@ -180,6 +184,14 @@ function select(skill) {
   // An organization's skills come from several repositories: the path says which.
   path.textContent = organization ? `${skill.repository}/${skill.path}` : skill.path;
   heading.append(title, path);
+  const repository = repositories.get(skill.repository);
+  if (typeof repository?.stars === 'number') {
+    const badge = document.createElement('span');
+    badge.className = 'stars';
+    badge.textContent = `★ ${stars(repository.stars)}`;
+    badge.title = `${repository.stars.toLocaleString('en-US')} ${repository.stars === 1 ? 'star' : 'stars'}`;
+    heading.append(' ', badge);
+  }
   if (skill.copies.length) {
     const copies = document.createElement('p');
     copies.className = 'copies';
@@ -214,6 +226,7 @@ function show(text, error = false) {
   // In place of the skills, and of the one that was selected.
   scanned.hidden = true;
   skills = [];
+  repositories = new Map();
   list.replaceChildren();
   const placeholder = document.createElement('p');
   placeholder.className = 'placeholder';

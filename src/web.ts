@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { AtlasError } from './core/errors.ts';
+import { groupSkills, type Model } from './core/group.ts';
 import { filesLink, skillLink, type Organization } from './core/model.ts';
 import { isOrganization, scan, scanOrganization, type OrganizationSource, type ScanResult, type Source } from './core/scan.ts';
 import { renderSkill, renderSummary } from './render.ts';
@@ -11,6 +12,8 @@ import { renderSkill, renderSummary } from './render.ts';
 export type WebOptions = {
   /** Opens what the user asked to scan, as the CLI does. */
   open(input: string): Promise<Source | OrganizationSource>;
+  /** Groups the skills by affinity: Claude, or a recording of its answers. */
+  model: Model;
   /** 0 for any free port. */
   port: number;
 };
@@ -91,28 +94,32 @@ export type ScanAnswer = Awaited<ReturnType<typeof scanJson>>;
 /**
  * What the page shows: what was scanned, a repository or an organization; on GitHub, its owner, the
  * organization or the user, with its avatar and homepage; each repository with skills, the skills
- * with their HTML and their summaries; and the warnings. A repository on its own is there even
- * without skills.
+ * with their HTML and their summaries; the skills grouped by affinity, by their ids; and the
+ * warnings. A repository on its own is there even without skills.
  */
 async function scanJson(repo: string, options: WebOptions) {
   const source = await options.open(repo);
   if (!isOrganization(source)) {
     const [result, owner] = await Promise.all([scan(source), ownerOf(source)]);
+    const grouping = await groupSkills(result.skills, options.model);
     return {
       id: result.repository.id,
       organization: undefined,
       owner: owner.organization,
       repositories: [repositoryJson(result)],
-      warnings: [...result.warnings, ...owner.warnings],
+      groups: grouping.groups,
+      warnings: [...result.warnings, ...owner.warnings, ...grouping.warnings],
     };
   }
   const { organization, repositories, warnings } = await scanOrganization(source);
+  const grouping = await groupSkills(repositories.flatMap((result) => result.skills), options.model);
   return {
     id: organization.id,
     organization,
     owner: organization,
     repositories: repositories.filter((result) => result.skills.length > 0).map(repositoryJson),
-    warnings,
+    groups: grouping.groups,
+    warnings: [...warnings, ...grouping.warnings],
   };
 }
 
