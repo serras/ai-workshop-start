@@ -119,6 +119,23 @@ test('the page: a text field for the repository at the top, the skills on the le
   assert.equal((await fetch(`${web.url}/no-such-page`)).status, 404);
 });
 
+test('the look: the logo before the name, a palette for light and dark, nothing loaded from elsewhere', async () => {
+  const page = await (await fetch(`${web.url}/`)).text();
+  assert.match(page, /<header>\s*<h1>\s*<svg class="logo"[^>]*aria-hidden="true"[\s\S]*<\/svg>\s*Skill Atlas\s*<\/h1>/);
+  const style = await (await fetch(`${web.url}/style.css`)).text();
+  assert.match(style, /color-scheme: light dark;/);
+  // Every color of the palette, for light and dark: no @media for the dark one.
+  for (const color of ['--accent', '--text', '--muted', '--canvas', '--pane', '--paper', '--border', '--selected']) {
+    assert.match(style, new RegExp(`${color}: light-dark\\(#[0-9a-f]{6}, #[0-9a-f]{6}\\);`), color);
+  }
+  assert.match(style, /body > header \{[^}]*background: var\(--gradient\);/);
+  // The selected skill: its accent bar.
+  assert.match(style, /#list button\[aria-current="true"\] \{[^}]*box-shadow: inset 4px 0 0 var\(--accent\)/);
+  // The page's policy loads nothing from elsewhere: no font, no import, images only data:.
+  assert.doesNotMatch(style, /@import|@font-face/);
+  for (const [url] of style.matchAll(/url\(([^)]*)\)/g)) assert.match(url, /^url\("data:image\/svg\+xml,/);
+});
+
 test('a scan: the repository, its skills sorted by name with their links and their SKILL.md as HTML, and the warnings', async () => {
   const root = pathToFileURL(FIXTURE).href;
   const { status, body } = await scanned(FIXTURE);

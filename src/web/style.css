@@ -1,10 +1,30 @@
+/*
+ * Skill Atlas: an indigo-to-violet header, the skills as cards on a tinted pane, the selected one
+ * with an accent bar, and its SKILL.md on a paper card. Light and dark, from the same variables.
+ */
 :root {
   color-scheme: light dark;
-  --border: color-mix(in srgb, currentColor 18%, transparent);
-  --muted: color-mix(in srgb, currentColor 60%, transparent);
-  --accent: #3b6fd8;
-  --selected: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent: light-dark(#4f46e5, #a5b4fc);
+  --accent-strong: light-dark(#4338ca, #c7d2fe);
+  --violet: light-dark(#7c3aed, #c4b5fd);
+  --gradient: linear-gradient(120deg, #4338ca 0%, #6d28d9 55%, #a21caf 100%);
+  --text: light-dark(#1e1b2e, #e7e5f4);
+  --muted: light-dark(#6b6880, #a19db8);
+  --canvas: light-dark(#f4f3fb, #121019);
+  --pane: light-dark(#fbfaff, #191623);
+  --paper: light-dark(#ffffff, #201c2d);
+  --border: light-dark(#e3e0f0, #312c42);
+  --hover: light-dark(#f0eefb, #262135);
+  --selected: light-dark(#eef0ff, #2a2546);
+  --code: light-dark(#f4f2fb, #15121e);
+  --danger: light-dark(#c62f3a, #ff8a8f);
+  --caution: light-dark(#a76200, #f5c36b);
+  --shadow: 0 1px 2px light-dark(rgb(30 27 46 / 0.06), rgb(0 0 0 / 0.4)), 0 4px 14px light-dark(rgb(67 56 202 / 0.07), rgb(0 0 0 / 0.25));
+  --radius: 10px;
+  --logo-dot: #f0abfc;
   font: 15px/1.5 system-ui, sans-serif;
+  color: var(--text);
+  background: var(--canvas);
 }
 
 * { box-sizing: border-box; }
@@ -16,42 +36,70 @@ body {
   flex-direction: column;
 }
 
+a { color: var(--accent); }
+
 body > header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
+  gap: 1.25rem;
+  padding: 0.8rem 1.25rem;
+  background: var(--gradient);
+  color: white;
+  box-shadow: 0 2px 12px rgb(67 56 202 / 0.25);
 }
 
-h1 { font-size: 1.1rem; margin: 0; white-space: nowrap; }
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.logo { flex: none; }
 
 #scan { flex: 1; display: flex; gap: 0.5rem; }
 
 #scan input {
   flex: 1;
   font: inherit;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid rgb(255 255 255 / 0.3);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.14);
+  color: white;
+  outline: none;
 }
+
+#scan input::placeholder { color: rgb(255 255 255 / 0.7); }
+#scan input:focus { background: rgb(255 255 255 / 0.22); border-color: rgb(255 255 255 / 0.75); }
 
 #scan button {
   font: inherit;
-  padding: 0.45rem 1rem;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
   border: 0;
-  border-radius: 6px;
-  background: var(--accent);
-  color: white;
+  border-radius: 8px;
+  background: white;
+  color: #4338ca;
   cursor: pointer;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
 }
 
-#scan button:disabled { opacity: 0.6; cursor: progress; }
+#scan button:hover { background: #eef0ff; }
+#scan button:disabled { opacity: 0.7; cursor: progress; }
 
-#status { margin: 0.25rem 0.5rem 0.5rem; font-size: 0.9rem; }
-#status.error { color: #d0453a; }
+#status { margin: 0.25rem 0.5rem 0.5rem; font-size: 0.9rem; color: var(--muted); }
+#status.error {
+  color: var(--danger);
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
 
 main {
   flex: 1;
@@ -66,54 +114,79 @@ main {
   flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--border);
-  padding: 0.75rem 0.5rem 0;
+  background: var(--pane);
+  padding: 0.85rem 0.6rem 0;
 }
 
-#found { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 0.75rem; }
+#found { flex: 1; min-height: 0; overflow-y: auto; padding: 0 0.15rem 0.75rem; }
 
-#skills h2 { font-size: 0.95rem; margin: 0 0.5rem 0.5rem; }
+#skills h2 { font-size: 1rem; font-weight: 700; margin: 0 0.5rem 0.5rem; }
 
-#skills ul { list-style: none; margin: 0; padding: 0; }
+#skills ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
 
 .repository > header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem;
-  margin: 0.75rem 0.5rem 0.25rem;
+  margin: 0.9rem 0.5rem 0.4rem;
 }
 
 .repository h3 {
   flex: 1;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
   margin: 0;
   overflow-wrap: anywhere;
 }
 
-.repository .stars { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.repository .stars {
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  color: light-dark(#92400e, #fcd34d);
+  background: light-dark(#fef3c7, rgb(252 211 77 / 0.14));
+}
 
-#owner { display: flex; align-items: center; gap: 0.6rem; margin: 0.25rem 0.5rem 0.75rem; }
+#owner {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0.25rem 0.15rem 0.85rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
 #owner[hidden], #owner [hidden] { display: none; }
-#owner img { flex: none; border-radius: 6px; border: 1px solid var(--border); }
+#owner img { flex: none; border-radius: 8px; }
 #owner div { min-width: 0; display: flex; flex-direction: column; }
 #owner a { overflow-wrap: anywhere; }
-#owner .login { font-weight: 600; color: inherit; text-decoration: none; }
-#owner .homepage { font-size: 0.85rem; color: var(--accent); }
+#owner .login { font-weight: 700; color: inherit; text-decoration: none; }
+#owner .homepage { font-size: 0.85rem; color: var(--accent); text-decoration: none; }
+#owner .homepage:hover { text-decoration: underline; }
 
 #filter {
   flex: none;
   display: block;
-  width: calc(100% - 1rem);
-  margin: 0 0.5rem 0.5rem;
+  width: calc(100% - 0.3rem);
+  margin: 0 0.15rem 0.75rem;
   font: inherit;
   font-size: 0.9rem;
-  padding: 0.35rem 0.55rem;
+  padding: 0.45rem 0.7rem 0.45rem 2rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
+  border-radius: 8px;
+  background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%238b87a3' stroke-width='1.8'%3E%3Ccircle cx='7' cy='7' r='4.75'/%3E%3Cpath d='M10.5 10.5 14 14' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat 0.65rem center;
   color: inherit;
+  outline: none;
 }
+
+#filter:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 
 #no-match { margin: 0.25rem 0.5rem; font-size: 0.9rem; }
 
@@ -123,41 +196,75 @@ main {
   text-align: left;
   font: inherit;
   color: inherit;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  padding: 0.45rem 0.5rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.7rem;
   cursor: pointer;
+  transition: border-color 120ms, background-color 120ms;
 }
 
-#list button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
-#list button[aria-current="true"] { background: var(--selected); }
+#list button:hover { background: var(--hover); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+#list button[aria-current="true"] {
+  background: var(--selected);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: inset 4px 0 0 var(--accent), var(--shadow);
+}
+#list button[aria-current="true"] > strong { color: var(--accent-strong); }
+#list button > strong { font-weight: 600; }
 #list span { display: block; font-size: 0.85rem; color: var(--muted); }
 
-#warnings { margin: 0.75rem 0.5rem 0; font-size: 0.85rem; color: var(--muted); }
+#warnings { margin: 0.9rem 0.15rem 0; font-size: 0.85rem; color: var(--caution); }
+#warnings summary { cursor: pointer; font-weight: 600; }
+#warnings ul { color: var(--muted); }
 #warnings li { margin: 0.25rem 0; overflow-wrap: anywhere; }
 
-#skill { overflow-y: auto; padding: 1rem 2rem 2rem; }
-#skill > header h2 { margin: 0; }
+/* The SKILL.md: its header and its Markdown, one paper card. */
+#skill { overflow-y: auto; padding: 1.5rem 2rem 2rem; }
+#skill > header, #skill > .markdown {
+  max-width: 54rem;
+  background: var(--paper);
+  border: 1px solid var(--border);
+}
+#skill > header {
+  padding: 1.25rem 1.75rem 1rem;
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: inset 0 4px 0 var(--violet);
+}
+#skill > header h2 { margin: 0; font-size: 1.6rem; font-weight: 750; letter-spacing: -0.015em; }
 #skill > header .path, .copies { font-size: 0.85rem; color: var(--muted); }
+#skill > header a.path { color: var(--accent); }
 .copies { margin: 0.25rem 0 0; }
 .placeholder { color: var(--muted); }
-.warning { color: #c27c0e; }
+#skill > .placeholder { margin: 4rem auto; text-align: center; font-size: 1.05rem; }
+.warning { color: var(--caution); }
 
 .markdown { max-width: 52rem; margin-top: 1rem; }
-.markdown a { color: var(--accent); }
+#skill > .markdown {
+  margin-top: 0;
+  padding: 0.25rem 1.75rem 1.5rem;
+  border-top: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.markdown h1, .markdown h2, .markdown h3 { letter-spacing: -0.01em; }
+.markdown h1 { font-size: 1.35rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
 .markdown img { max-width: 100%; }
 .markdown pre { overflow-x: auto; }
 .markdown pre, .markdown code {
   font-family: ui-monospace, monospace;
   font-size: 0.9em;
-  background: color-mix(in srgb, currentColor 7%, transparent);
-  border-radius: 4px;
+  background: var(--code);
+  border-radius: 6px;
 }
-.markdown pre { padding: 0.75rem; }
-.markdown code { padding: 0.1em 0.3em; }
-.markdown pre code { padding: 0; background: none; }
+.markdown pre { padding: 0.85rem 1rem; border: 1px solid var(--border); }
+.markdown code { padding: 0.1em 0.35em; color: light-dark(#5b21b6, #ddd6fe); }
+.markdown pre code { padding: 0; background: none; color: inherit; }
 
-.markdown table, .front-matter { border-collapse: collapse; margin: 1rem 0; }
-.markdown th, .markdown td { border: 1px solid var(--border); padding: 0.35rem 0.6rem; text-align: left; vertical-align: top; }
+.markdown table, .front-matter { border-collapse: separate; border-spacing: 0; margin: 1rem 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.markdown th, .markdown td { padding: 0.4rem 0.75rem; text-align: left; vertical-align: top; border-top: 1px solid var(--border); }
+.markdown tr:first-child > th, .markdown tr:first-child > td { border-top: 0; }
+.markdown thead th { background: var(--code); }
+.markdown thead + tbody tr:first-child > * { border-top: 1px solid var(--border); }
+.front-matter th { width: 1%; white-space: nowrap; font-size: 0.85rem; color: var(--muted); font-weight: 600; background: var(--code); border-right: 1px solid var(--border); }
 .front-matter td { white-space: pre-wrap; }
