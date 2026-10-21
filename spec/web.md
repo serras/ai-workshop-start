@@ -21,6 +21,8 @@
 - The description is *Markdown*: rendered in the table; on a chip's hover, its text
 - A failed scan → its message, in place of the skills, under the filter
 - `?repo=…&skill=…` in the address, the skill by its id, `repo:path`: the scan and the selection survive a reload; `&filter=…`, the filter
+  - A failed scan too: the address is the scan shown, its repository; a reload scans it again, and shows its message
+  - Typed at the top, no skill and an empty filter, as for any new scan; from the address, a reload or a shared link, its `&skill=…` and `&filter=…` kept
 - `GITHUB_TOKEN`, as for `scan`; *nothing is stored*; Claude's groups kept in memory only, while it runs
 ## Look
 - The *same layout*, in an **indigo-to-violet** palette: the header a gradient, with the **logo**, a compass, before `Skill Atlas`, and the field and `Scan` in white on it
