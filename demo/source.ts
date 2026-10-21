@@ -2,7 +2,7 @@
 // a user whose profile GitHub does not give, and an empty organization. Local directories are read
 // as the CLI reads them; Claude answers from demo/claude.json. Nothing reaches the network.
 import { readFileSync } from 'node:fs';
-import { openGitHub, openGitHubOrganization, parseGitHubOrganization, parseGitHubUrl } from '../src/core/github.ts';
+import { isGitHubAddress, openGitHub, openGitHubOrganization, parseGitHubOrganization } from '../src/core/github.ts';
 import { replay, replayModel, type ModelRecording, type Recording } from '../src/core/replay.ts';
 import { openDirectory } from '../src/local.ts';
 
@@ -110,8 +110,8 @@ export const model = replayModel(JSON.parse(readFileSync(new URL('./claude.json'
 
 /** Opens what the CLI would, with GitHub answering from RECORDING, with a token: through code search. */
 export const open = (input: string) =>
-  parseGitHubUrl(input)
-    ? openGitHub(input, { fetch: github, token: 'demo' })
-    : parseGitHubOrganization(input)
-      ? openGitHubOrganization(input, { fetch: github, token: 'demo' })
+  parseGitHubOrganization(input)
+    ? openGitHubOrganization(input, { fetch: github, token: 'demo' })
+    : isGitHubAddress(input)
+      ? openGitHub(input, { fetch: github, token: 'demo' })
       : openDirectory(input);

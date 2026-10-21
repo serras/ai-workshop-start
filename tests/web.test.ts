@@ -222,6 +222,21 @@ test('a directory written with ~ → the same scan as spelled out: the server ex
   });
 });
 
+test('URLs copied from the browser: the repository; another GitHub page → what is wrong with it', async () => {
+  for (const url of ['https://github.com/JetBrains/example?tab=readme-ov-file', 'https://github.com/JetBrains/example#readme']) {
+    const { status, body } = await scanned(url);
+    assert.equal(status, 200, url);
+    assert.equal(body.id, 'JetBrains/example', url);
+  }
+  assert.deepEqual(await scanned('https://github.com/JetBrains/example/pulls'), {
+    status: 400,
+    body: {
+      error:
+        'Neither a repository nor an organization on GitHub: https://github.com/JetBrains/example/pulls; scan github.com/<owner>, github.com/<owner>/<repo> or github.com/<owner>/<repo>/tree/<ref>',
+    },
+  });
+});
+
 test('nothing in a SKILL.md runs: raw HTML is text, only web links are kept; a local file\'s links are only their text', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
