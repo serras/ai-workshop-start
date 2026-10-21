@@ -1,6 +1,6 @@
 # Web view
 `./skill-atlas serve [--port <port>]`: the scan as a page, at `http://localhost:3000` by default
-- At the top, a **text field**: a GitHub URL, a GitHub organization (`github.com/<owner>`) or a directory, as for `scan`
+- At the top, a **text field**: a GitHub URL, a GitHub organization (`github.com/<owner>`) or a directory, as for `scan`; a URL as copied from the browser's address bar, with `?tab=…`, `#readme` or `/tree/<ref>/<folder>`, as [for the CLI](cli.md)
   - `~/projects/foo` → the same directory as `/home/<you>/projects/foo`: nothing in the browser expands `~`, the server does, as `scan` does; a relative path, against the directory `serve` started in
 - On the left, at the very top and *always visible*, a **filter** field: before any scan, after a failed one, and while the list under it scrolls
   - As the user types, only the skills whose *name* contains the text, ignoring case, are listed; *no button*

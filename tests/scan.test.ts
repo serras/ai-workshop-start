@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
-import { openGitHub } from '../src/core/github.ts';
+import { openGitHub, parseGitHubOrganization, parseGitHubUrl } from '../src/core/github.ts';
 import { parseSkill } from '../src/core/parse.ts';
 import { replay } from '../src/core/replay.ts';
 import { atlas, CLI, EXAMPLE_COMMIT, FIXTURE } from './helpers.ts';
@@ -61,8 +61,98 @@ test('a /tree/<commit> URL scans that commit, through its tree even with a token
     'https://api.github.com/repos/JetBrains/example/commits/no-such-ref': { status: 404, body: { message: 'Not Found' } },
   });
   await assert.rejects(openGitHub('github.com/JetBrains/example/tree/no-such-ref', { fetch: missing }), {
-    message: 'Not found in https://github.com/JetBrains/example: no-such-ref',
+    message: 'No branch, tag or commit no-such-ref in https://github.com/JetBrains/example',
   });
+});
+
+test('URLs copied from the browser: a query or a fragment is ignored; /tree/<ref>/<folder> is the ref', () => {
+  const kotlin = { owner: 'JetBrains', repo: 'kotlin' };
+  for (const input of [
+    'https://github.com/JetBrains/kotlin?tab=readme-ov-file',
+    'https://github.com/JetBrains/kotlin#readme',
+    'https://github.com/JetBrains/kotlin/?tab=readme-ov-file#readme',
+    'github.com/JetBrains/kotlin.git#readme',
+  ]) {
+    assert.deepEqual(parseGitHubUrl(input), kotlin, input);
+  }
+  assert.deepEqual(parseGitHubUrl('https://github.com/JetBrains/kotlin/tree/master/.claude/skills'), { ...kotlin, tree: 'master/.claude/skills' });
+  assert.deepEqual(parseGitHubUrl('https://github.com/JetBrains/kotlin/tree/master/?tab=x#y'), { ...kotlin, tree: 'master' });
+  assert.equal(parseGitHubOrganization('https://github.com/JetBrains?tab=repositories'), 'JetBrains');
+  assert.equal(parseGitHubOrganization('https://github.com/JetBrains#top'), 'JetBrains');
+});
+
+test('the README tab and its anchor scan the repository, as without them', async () => {
+  for (const url of ['https://github.com/JetBrains/example?tab=readme-ov-file', 'https://github.com/JetBrains/example#readme']) {
+    const copied = await atlas(['scan', url]);
+    assert.deepEqual(copied, example, url);
+  }
+});
+
+test('/tree/<ref>/<folder>: the whole repository at the ref; a ref may have slashes; an unknown one → a clear message', async () => {
+  const pinned = '0123456789abcdef0123456789abcdef01234567';
+  const noCommit = (sha: string) => ({ status: 422, body: { message: `No commit found for SHA: ${sha}` } });
+  const commits = 'https://api.github.com/repos/JetBrains/example/commits';
+  const refs = 'https://api.github.com/repos/JetBrains/example/git/matching-refs';
+  const github = replay({
+    'https://api.github.com/repos/JetBrains/example': { status: 200, body: { full_name: 'JetBrains/example', default_branch: 'main' } },
+    [`${commits}/master`]: { status: 200, body: { sha: pinned } },
+    // A branch with a slash: its first segment is not a ref.
+    [`${commits}/feature`]: { status: 404, body: { message: 'Not Found' } },
+    [`${refs}/heads/feature/`]: { status: 200, body: [{ ref: 'refs/heads/feature/login' }] },
+    [`${refs}/tags/feature/`]: { status: 200, body: [] },
+    [`${commits}/feature/login`]: { status: 200, body: { sha: pinned } },
+    // However long the path, an unknown ref costs three requests.
+    [`${commits}/nope`]: noCommit('nope'),
+    [`${refs}/heads/nope/`]: { status: 200, body: [] },
+    [`${refs}/tags/nope/`]: { status: 200, body: [] },
+    [`https://api.github.com/repos/JetBrains/example/git/trees/${pinned}?recursive=1`]: {
+      status: 200,
+      body: {
+        truncated: false,
+        tree: [
+          { path: '.claude/skills/commits/SKILL.md', mode: '100644', type: 'blob', sha: 'a' },
+          { path: '.agents/skills/release/SKILL.md', mode: '100644', type: 'blob', sha: 'b' },
+        ],
+      },
+    },
+  });
+  for (const url of [
+    'https://github.com/JetBrains/example/tree/master/.claude/skills',
+    'https://github.com/JetBrains/example/tree/feature/login/.claude/skills/',
+  ]) {
+    const source = await openGitHub(url, { fetch: github, token: 'test' });
+    assert.equal(source.repository.commit, pinned, url);
+    // Not only the folder: every skill of the repository.
+    assert.deepEqual(source.paths, ['.claude/skills/commits/SKILL.md', '.agents/skills/release/SKILL.md'], url);
+  }
+  await assert.rejects(openGitHub('https://github.com/JetBrains/example/tree/nope/.claude/skills', { fetch: github }), {
+    message: 'No branch, tag or commit nope/.claude/skills in https://github.com/JetBrains/example',
+  });
+  await assert.rejects(openGitHub('https://github.com/JetBrains/example/tree/nope/a/b/c/d/e', { fetch: github }), {
+    message: 'No branch, tag or commit nope/a/b/c/d/e in https://github.com/JetBrains/example',
+  });
+});
+
+test('/tree/<ref> of an empty repository → says it is empty, as without /tree/<ref>', async () => {
+  const empty = { status: 409, body: { message: 'Git Repository is empty.' } };
+  const github = replay({
+    'https://api.github.com/repos/acme/blank': { status: 200, body: { full_name: 'acme/blank', default_branch: 'main' } },
+    'https://api.github.com/repos/acme/blank/commits/main': empty,
+  });
+  for (const url of ['https://github.com/acme/blank', 'https://github.com/acme/blank/tree/main', 'https://github.com/acme/blank/tree/main/.claude']) {
+    await assert.rejects(openGitHub(url, { fetch: github }), { message: 'The repository is empty: https://github.com/acme/blank' }, url);
+  }
+});
+
+test('another page on GitHub → says it is neither a repository nor an organization, exit code 1', async () => {
+  for (const url of ['https://github.com/JetBrains/kotlin/pulls', 'https://github.com/JetBrains/kotlin/blob/master/README.md', 'https://github.com/']) {
+    const result = await atlas(['scan', url]);
+    assert.equal(result.code, 1, url);
+    assert.equal(
+      result.stderr,
+      `Neither a repository nor an organization on GitHub: ${url}; scan github.com/<owner>, github.com/<owner>/<repo> or github.com/<owner>/<repo>/tree/<ref>`,
+    );
+  }
 });
 
 test('./fixture: every skill, sorted by name, linked to its file, with a warning for the malformed one', () => {
