@@ -2,6 +2,7 @@
 `./skill-atlas scan <GitHub URL | directory>`; `./skill-atlas serve`: the [web view](web.md)
 - `github.com/<owner>/<repo>`: the default branch; `github.com/<owner>/<repo>/tree/<ref>`: that branch, tag or commit
 - `github.com/<owner>`: every repository of the [organization](analysis.md#a-whole-organization), or of the user's account
+- A directory: `~` and `~/…`, the home directory of the user running it, even when the shell left them as typed; `~<user>` is not expanded; a relative path, against the directory it runs in
 Prints the result **at once**; *nothing is stored*.
 `GITHUB_TOKEN`, optional: a higher GitHub rate limit.
 ## Output

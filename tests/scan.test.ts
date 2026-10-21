@@ -92,6 +92,26 @@ test('the CLI prints the result at once and stores nothing', (t) => {
   assert.deepEqual(readdirSync(cwd), []);
 });
 
+test('a directory written with ~: in the home directory, even when the shell left it as typed; ~<user> is not expanded', (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'skill-atlas-home-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  mkdirSync(join(home, 'projects/nasty/.claude/skills/commits'), { recursive: true });
+  writeFileSync(join(home, 'projects/nasty/.claude/skills/commits/SKILL.md'), '---\nname: commits\ndescription: Writes commits.\n---\n');
+  const scan = (input: string) => {
+    const { status, stdout, stderr } = spawnSync(process.execPath, [CLI, 'scan', input], { env: { ...process.env, HOME: home }, encoding: 'utf8' });
+    return { status, stdout, stderr };
+  };
+  const spelledOut = scan(join(home, 'projects/nasty'));
+  assert.equal(spelledOut.status, 0, spelledOut.stderr);
+  assert.match(spelledOut.stdout, /^nasty · 1 skills?\ncommits — Writes commits\./);
+  assert.deepEqual(scan('~/projects/nasty'), spelledOut);
+  assert.match(scan('~').stdout, /^skill-atlas-home-\w+ · 1 skills?\n/);
+
+  const other = scan('~nobody/projects/nasty');
+  assert.equal(other.status, 1);
+  assert.equal(other.stderr, 'Not a GitHub URL or a readable directory: ~nobody/projects/nasty\n');
+});
+
 test('unreachable repository → a clear message, exit code 1', async () => {
   const missing = spawnSync(process.execPath, [CLI, 'scan', join(FIXTURE, 'no-such-directory')], { encoding: 'utf8' });
   assert.equal(missing.status, 1);

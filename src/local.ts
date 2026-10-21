@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { basename, join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AtlasError } from './core/errors.ts';
 import type { Source } from './core/scan.ts';
@@ -9,7 +10,7 @@ const SKIPPED = new Set(['.git', 'node_modules']);
 
 /** A local checkout as a repository: named after its directory, linked with file:// URLs. */
 export async function openDirectory(input: string): Promise<Source> {
-  const root = resolve(input);
+  const root = resolve(expandHome(input));
   const name = basename(root);
   let paths: string[];
   try {
@@ -23,6 +24,13 @@ export async function openDirectory(input: string): Promise<Source> {
     warnings: [],
     read: (path) => readFile(join(root, path)).then((bytes) => new Uint8Array(bytes), () => undefined),
   };
+}
+
+/** `~` and `~/…` in the user's home directory, as a shell expands them: the web view has no shell. */
+function expandHome(input: string): string {
+  if (input === '~') return homedir();
+  if (input.startsWith('~/') || input.startsWith(`~${sep}`)) return join(homedir(), input.slice(2));
+  return input;
 }
 
 /** Every regular file under the directory, as a path relative to the root. */

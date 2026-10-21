@@ -186,6 +186,28 @@ test('unreachable repository → its message, for the page to show', async () =>
   assert.deepEqual(await scanned(' '), { status: 400, body: { error: 'Type a GitHub URL or a directory' } });
 });
 
+test('a directory written with ~ → the same scan as spelled out: the server expands it, not the browser', async (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'skill-atlas-home-'));
+  const saved = process.env.HOME;
+  process.env.HOME = home;
+  t.after(() => {
+    if (saved === undefined) delete process.env.HOME;
+    else process.env.HOME = saved;
+    rmSync(home, { recursive: true, force: true });
+  });
+  mkdirSync(join(home, 'projects/nasty/.claude/skills/commits'), { recursive: true });
+  writeFileSync(join(home, 'projects/nasty/.claude/skills/commits/SKILL.md'), '---\nname: commits\ndescription: Writes commits.\n---\n');
+  const spelledOut = await scanned(join(home, 'projects/nasty'));
+  assert.equal(spelledOut.status, 200);
+  assert.deepEqual(skillsOf(spelledOut.body).map((skill) => skill.name), ['commits']);
+  assert.deepEqual(await scanned('~/projects/nasty'), spelledOut);
+  assert.deepEqual(await scanned(' ~/projects/nasty '), spelledOut);
+  assert.deepEqual(await scanned('~nobody/projects/nasty'), {
+    status: 400,
+    body: { error: 'Not a GitHub URL or a readable directory: ~nobody/projects/nasty' },
+  });
+});
+
 test('nothing in a SKILL.md runs: raw HTML is text, only web links are kept; a local file\'s links are only their text', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'skill-atlas-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
