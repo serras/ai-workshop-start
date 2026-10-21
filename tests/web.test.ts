@@ -369,6 +369,41 @@ test('the page: a new scan empties the filter', async (t) => {
   assert.equal(new URL(view.location.href).searchParams.has('filter'), false);
 });
 
+test('the page: a failed scan is in the address, so a reload scans it again and shows its message', async (t) => {
+  const commits = 'fixture:.claude/skills/commits/SKILL.md';
+  const view = await page(t, `?repo=${encodeURIComponent(FIXTURE)}&skill=${encodeURIComponent(commits)}&filter=com`);
+  await scannedIn(view, 'fixture');
+  assert.equal(view.$('#skill h2').textContent, 'commits');
+  const missing = join(FIXTURE, 'no-such-directory');
+  view.$<HTMLInputElement>('#repo').value = missing;
+  view.$<HTMLFormElement>('#scan').requestSubmit();
+  assert.match(await statusIn(view), /^Not a GitHub URL or a readable directory: /);
+  // The failed scan's repository; typed at the top, no skill; a new scan, an empty filter.
+  const address = new URL(view.location.href).searchParams;
+  assert.equal(address.get('repo'), missing);
+  assert.equal(address.has('skill'), false);
+  assert.equal(address.has('filter'), false);
+  assert.equal(view.$<HTMLInputElement>('#filter').value, '');
+
+  const reloaded = await page(t, view.location.search);
+  assert.equal(reloaded.$<HTMLInputElement>('#repo').value, missing);
+  assert.match(await statusIn(reloaded), /^Not a GitHub URL or a readable directory: /);
+  assert.equal(reloaded.shown('#scanned'), false);
+  assert.equal(new URL(reloaded.location.href).searchParams.get('repo'), missing);
+});
+
+test('the page: a scan from the address that fails keeps its skill and its filter there, for the next reload', async (t) => {
+  const missing = join(FIXTURE, 'no-such-directory');
+  const search = `?repo=${encodeURIComponent(missing)}&skill=${encodeURIComponent('fixture:.claude/skills/commits/SKILL.md')}&filter=com`;
+  const view = await page(t, search);
+  assert.match(await statusIn(view), /^Not a GitHub URL or a readable directory: /);
+  const address = new URL(view.location.href).searchParams;
+  assert.equal(address.get('repo'), missing);
+  assert.equal(address.get('skill'), 'fixture:.claude/skills/commits/SKILL.md');
+  assert.equal(address.get('filter'), 'com');
+  assert.equal(view.$<HTMLInputElement>('#filter').value, 'com');
+});
+
 test('an organization: every repository with skills, sorted, each skill after its repository', async () => {
   const { status, body } = await scanned('https://github.com/JetBrains');
   assert.equal(status, 200);
