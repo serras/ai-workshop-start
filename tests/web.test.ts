@@ -191,7 +191,8 @@ test('a directory written with ~ → the same scan as spelled out: the server ex
   const saved = process.env.HOME;
   process.env.HOME = home;
   t.after(() => {
-    process.env.HOME = saved;
+    if (saved === undefined) delete process.env.HOME;
+    else process.env.HOME = saved;
     rmSync(home, { recursive: true, force: true });
   });
   mkdirSync(join(home, 'projects/nasty/.claude/skills/commits'), { recursive: true });
