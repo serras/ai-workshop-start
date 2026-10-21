@@ -1,6 +1,6 @@
 // `npm run demo`: plays the demo on the fake GitHub, takes its shots into shots/, the reference
 // tests/visual/demo.spec.ts compares with, and records it as shots/demo.webm.
-import { mkdirSync, mkdtempSync, renameSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,7 +28,8 @@ try {
   });
   const video = page.video()!;
   await context.close();
-  renameSync(await video.path(), join(SHOTS, 'demo.webm'));
+  // Copied, not renamed: the temporary directory may be on another device.
+  copyFileSync(await video.path(), join(SHOTS, 'demo.webm'));
   console.log('shots/demo.webm');
 } finally {
   await browser.close();

@@ -20,6 +20,13 @@
 - A failed scan → its message, in place of the skills, under the filter
 - `?repo=…&skill=…` in the address, the skill by its id, `repo:path`: the scan and the selection survive a reload; `&filter=…`, the filter
 - `GITHUB_TOKEN`, as for `scan`; *nothing is stored*
+## Look
+- The *same layout*, in an **indigo-to-violet** palette: the header a gradient, with the **logo**, a compass, before `Skill Atlas`, and the field and `Scan` in white on it
+- The left pane *tinted*: the filter with a search icon; the owner, and each skill, a **card**; the selected one with an *accent bar* on its left and its name in the accent color
+- Each repository's id in *small capitals*; its stars a gold **pill**
+- The selected `SKILL.md` on a white **paper card**, a violet line on its top; the front matter's keys in a column of their own; tables and code blocks rounded
+- A failed scan's message in a red box; the warnings amber
+- **Light and dark**, as the system is: the same colors, from one palette, `light-dark()`; system fonts, nothing loaded from elsewhere
 ## Safety
 - Listens on *this machine only*, and answers only for `localhost`: it reads local directories
 - The owner's homepage is only ever a web address, and its avatar an `https:` one

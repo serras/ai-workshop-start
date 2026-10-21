@@ -9,7 +9,14 @@
 </head>
 <body>
   <header>
-    <h1>Skill Atlas</h1>
+    <h1>
+      <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+        <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.5" opacity="0.55"/>
+        <path d="M16 5 L19.5 16 L16 27 L12.5 16 Z" fill="currentColor"/>
+        <circle cx="16" cy="16" r="2.4" fill="var(--logo-dot)"/>
+      </svg>
+      Skill Atlas
+    </h1>
     <form id="scan" role="search">
       <input id="repo" name="repo" type="text" required autofocus spellcheck="false" autocomplete="off"
         placeholder="https://github.com/owner/repo, https://github.com/owner, or a directory" aria-label="Repository or organization to search">
