@@ -231,7 +231,6 @@ main {
 /* The SKILL.md: its header and its Markdown, one paper card. */
 #skill { overflow-y: auto; padding: 1.5rem 2rem 2rem; }
 #skill > header, #skill > .markdown {
-  max-width: 54rem;
   background: var(--paper);
   border: 1px solid var(--border);
 }
@@ -249,7 +248,7 @@ main {
 #skill > .placeholder { margin: 4rem auto; text-align: center; font-size: 1.05rem; }
 .warning { color: var(--caution); }
 
-.markdown { max-width: 52rem; margin-top: 1rem; }
+.markdown { margin-top: 1rem; }
 #skill > .markdown {
   margin-top: 0;
   padding: 0.25rem 1.75rem 1.5rem;
