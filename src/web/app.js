@@ -47,11 +47,17 @@ async function scan(repo, selected, typed = '') {
   const request = ++current;
   show(`Scanning ${repo}…`);
   form.querySelector('button').disabled = true;
+  // A failed scan is in the address too: a reload scans it again, and shows its message.
+  const failed = (text) => {
+    show(text, true);
+    filter.value = typed;
+    remember({ repo, skill: selected, filter: typed });
+  };
   try {
     const response = await fetch(`/api/scan?repo=${encodeURIComponent(repo)}`);
     const body = await response.json();
     if (request !== current) return;
-    if (!response.ok) return show(body.error, true);
+    if (!response.ok) return failed(body.error);
     status.hidden = true;
     organization = Boolean(body.organization);
     skills = body.repositories.flatMap((result) => result.skills);
@@ -69,7 +75,7 @@ async function scan(repo, selected, typed = '') {
     remember({ repo, skill: null, filter: typed });
     select(skills.find((skill) => skill.id === selected));
   } catch (error) {
-    if (request === current) show(`Cannot scan ${repo}: ${error.message}`, true);
+    if (request === current) failed(`Cannot scan ${repo}: ${error.message}`);
   } finally {
     if (request === current) form.querySelector('button').disabled = false;
   }
