@@ -11,7 +11,7 @@ Repository: on GitHub, also its *stars*. Organization, or the user owning a repo
 - **GitHub API**, no clone; *under 5 s* for intellij-community
 - The name: front matter, else the directory
 - The link pins the *scanned commit*
-- A `/tree/<ref>` URL pins the commit: listed through its tree, since code search sees only the default branch; an unknown ref → a clear message, `No branch, tag or commit <ref> in https://github.com/<owner>/<repo>`, exit code 1 (GitHub answers 404 or 422); at most three requests however long the path: the first segment as a commit, else the branches and tags starting with it; an empty repository → `The repository is empty: https://github.com/<owner>/<repo>`, as without `/tree/<ref>`
+- A `/tree/<ref>` URL pins the commit: listed through its tree, since code search sees only the default branch; an unknown ref → a clear message, `No branch, tag or commit <ref> in https://github.com/<owner>/<repo>`, exit code 1 (GitHub answers 404 or 422); at most three requests however long the path: the first segment as a commit, else the branches and tags under it (`<first segment>/…`); an empty repository → `The repository is empty: https://github.com/<owner>/<repo>`, as without `/tree/<ref>`
 - End-to-end: `JetBrains/MPS`, `JetBrains/android`, `JetBrains/kotlin` and `JetBrains/koog`, each at a fixed commit, print what [tests/e2e](../tests/e2e/) holds
 - Malformed front matter → a *warning*, the scan goes on
 - Unreachable repository → a clear message, exit code 1

@@ -125,7 +125,7 @@ export async function openGitHubOrganization(input: string, options: GitHubOptio
  * `feature/login` may be a branch with a slash. The shortest beginning GitHub knows as a branch, a
  * tag or a commit; git cannot have both a branch `feature` and a branch `feature/login`. The whole
  * repository is scanned at it, not only the folder. At most three requests, however long the path:
- * the first segment as a commit, else the branches and tags starting with it.
+ * the first segment as a commit, else the branches and tags under it, `<first segment>/…`.
  */
 async function resolveRef(github: Client, id: string, tree: string): Promise<string> {
   const segments = tree.split('/');

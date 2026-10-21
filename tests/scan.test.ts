@@ -98,13 +98,13 @@ test('/tree/<ref>/<folder>: the whole repository at the ref; a ref may have slas
     [`${commits}/master`]: { status: 200, body: { sha: pinned } },
     // A branch with a slash: its first segment is not a ref.
     [`${commits}/feature`]: { status: 404, body: { message: 'Not Found' } },
-    [`${refs}/heads/feature`]: { status: 200, body: [{ ref: 'refs/heads/feature/login' }, { ref: 'refs/heads/feature-flags' }] },
-    [`${refs}/tags/feature`]: { status: 200, body: [] },
+    [`${refs}/heads/feature/`]: { status: 200, body: [{ ref: 'refs/heads/feature/login' }] },
+    [`${refs}/tags/feature/`]: { status: 200, body: [] },
     [`${commits}/feature/login`]: { status: 200, body: { sha: pinned } },
     // However long the path, an unknown ref costs three requests.
     [`${commits}/nope`]: noCommit('nope'),
-    [`${refs}/heads/nope`]: { status: 200, body: [] },
-    [`${refs}/tags/nope`]: { status: 200, body: [] },
+    [`${refs}/heads/nope/`]: { status: 200, body: [] },
+    [`${refs}/tags/nope/`]: { status: 200, body: [] },
     [`https://api.github.com/repos/JetBrains/example/git/trees/${pinned}?recursive=1`]: {
       status: 200,
       body: {
