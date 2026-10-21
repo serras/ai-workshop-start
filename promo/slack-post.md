@@ -1,0 +1,3 @@
+:compass: *Meet Skill Atlas: every agent skill in your repositories, at a glance.* Paste a GitHub repository, a whole organization or a local folder into its web view, and it finds every `SKILL.md` in it. Claude groups the skills by what they're for, so you can see what your team has already taught its agents. Click one to read it, nicely rendered, with its repository's stars. Type in the filter to find a skill by name, and share the link to land a teammate on the same skill.
+
+Try it on your own repos: `npm ci`, then `./skill-atlas serve` and open http://localhost:3000 (set `GITHUB_TOKEN` to scan big organizations). It runs on your machine only, and it follows your system's light or dark mode. The 30-second tour is attached :point_down:

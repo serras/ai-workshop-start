@@ -14,6 +14,7 @@
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "demo": "node demo/record.ts",
+    "promo": "node promo/record.ts",
     "test:visual": "playwright test",
     "record": "node scripts/record-claude.ts tests/claude.json demo/claude.json"
   },

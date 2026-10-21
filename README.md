@@ -28,6 +28,8 @@ replayed from [tests/claude.json](tests/claude.json); `npm run record` asks Clau
 `npm run demo` plays every feature of the web view on a fake GitHub and takes its shots into
 [shots/](shots/), with a video; `npm run test:visual` checks the page still looks exactly like them
 (`npx playwright install chromium` first).
+`npm run promo` records a 30-second promotional video of it, with captions, into
+[promo/](promo/), next to a [Slack post](promo/slack-post.md) (ffmpeg needed).
 
 - [spec/](spec/): what it does. [AGENTS.md](AGENTS.md): the definition of done.
 - [fixture/](fixture/README.md): a small repository for the tests.

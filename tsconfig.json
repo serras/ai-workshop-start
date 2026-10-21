@@ -12,5 +12,5 @@
     "allowJs": true,
     "skipLibCheck": true
   },
-  "include": ["src", "scripts", "tests", "demo", "playwright.config.ts"]
+  "include": ["src", "scripts", "tests", "demo", "promo", "playwright.config.ts"]
 }
